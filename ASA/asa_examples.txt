@@ -1,0 +1,1120 @@
+		  http://www.ingber.com/asa_examples.txt
+
+This file contains some "toy" problems optimized using ASA, which can
+provide immediate examples on how you can optimize your own problem.
+For papers dealing with difficult systems across a wide range of
+disciplines, see
+	http://www.ingber.com/asa_papers.html
+	http://www.ingber.com/asa_papers.txt
+
+			CONTENTS
+
+@@CHANGES
+@@Note on ASA Versions
+@@Some Helpful Code Snippets
+	@@Independent Coordinates When Sampling Large Spaces
+@@Use of ASA_TEST_POINT=TRUE
+@@Quenching ASA_TEST Problem
+@@Use of COST_FILE on Shubert Problem - SA vs Taboo
+@@Colville Examples
+@@OPTIONAL_DATA_PTR and MULTI_MIN
+
+========================================================================
+22 Feb 03
+
+@@CHANGES
+
+Renamed files to faciliate their use in larger projects:
+asa_user.h -> asa_usr_asa.h
+user.c -> asa_usr.c
+user.h -> asa_usr.h
+user_cst.c -> asa_usr_cst.c
+readme.ms -> ASA-README.ms
+test_asa -> asa_test_asa
+test_usr -> asa_test_usr
+
+========================================================================
+@@Note on ASA Versions
+
+The instructions given below to run various examples should be correct
+as of the date and/or ASA versions given.  Later ASA versions may have
+had some defaults changed, and this will change the nature of the
+runs.  Tuning is essential for any global optimization code that is to
+be applied successfully to many classes of nonlinear/stochastic
+systems.  I of course have archived all previous ASA versions so that
+results given here should be reproducible by anyone that can compile
+the given version of the ASA code.
+
+Lester
+
+========================================================================
+@@Some Helpful Code Snippets
+
+========================================================================
+	@@Independent Coordinates When Sampling Large Spaces
+16 Jan 09
+
+Here is something you might try in a large parameter space of size
+*parameter_dimension:  For the first *parameter_dimension generated
+states (+1; see below), it might be reasonable to "seed" the sampling
+by at least first calculating each parameter independently -- like each
+axis of a coordinate system.
+
+In your cost function, you could add something like:
+
+  for (i = 0; i < *parameter_dimension; ++i) {
+...
+    /* first sample independent parameter coordinates */
+    if (USER_OPTIONS->N_Generated > 0   /* skip cost temperature tests */
+        && USER_OPTIONS->N_Generated <= *parameter_dimension) {
+      if ((LONG_INT) i == USER_OPTIONS->N_Generated - 1) {
+        x[i] = 1; /* some reasonable value */
+      } else {
+        x[i] = 0; /* some reasonable value */
+      }
+    }
+...
+  }
+
+Of course, you likely want to respect parameter_upper_bound[] and
+parameter_lower_bound[], and any OPTIONS like ASA_RESOLUTION set to
+TRUE, etc.
+
+========================================================================
+========================================================================
+@@Use of ASA_TEST_POINT=TRUE
+
+15 Feb 08
+
+Since 1997 the ASA defaults have changed.  To get good results with
+ASA_TEST_POINT=TRUE, the suggestions made for changes in asa_opt in 1997
+can be changed to
+Limit_Acceptances[10000][ASA_TEST:1000]                 99999
+Limit_Generated[99999]                                  999999
+Maximum_Cost_Repeat[5]                                  0
+Temperature_Ratio_Scale[1.0E-5]                         5.0E-3
+Reanneal_Cost[1]                                        5
+Reanneal_Parameters[TRUE=1]                             0
+
+(No change in User_Quench_Cost_Scale[0])
+
+This gives at the end of asa_out:
+*index_cost_acceptances = 9218, *current_cost_temperature = 3.553019e-14
+*accepted_to_generated_ratio =   0.05473632, *number_invalid... = 0
+*number_generated = 978255, *number_accepted = 100000
+best...->cost = 3.364429e-15, last...->cost = 1.995893e-13
+index_v  best...->parameter current_parameter_temp      tangent
+0       -2.993211e-08           1.305639e-23    -5.989416e-08
+1       -1.235232e-09           1.305639e-23     -2.4717e-06
+2        5.21106e-10            1.305639e-23    1.042733e-08
+3       -3.065916e-09           1.305639e-23    -6.134897e-07
+
+curvature[0][0] =            2
+
+curvature[1][0] =            0   = curvature[0][1]
+curvature[1][1] =         2000
+
+curvature[2][0] =           -0   = curvature[0][2]
+curvature[2][1] = -6.127676e-07          = curvature[1][2]
+curvature[2][2] =           20
+
+curvature[3][0] = -4.298064e-09          = curvature[0][3]
+curvature[3][1] =            0   = curvature[1][3]
+curvature[3][2] =           -0   = curvature[2][3]
+curvature[3][3] =          200
+
+ NORMAL_EXIT exit_status = 0
+ Locate_Cost = 5, calculating curvatures while exiting asa ()
+final_cost = best_generated_state->cost = 3.364429e-15
+*number_accepted at best_generated_state->cost = 99782
+*number_generated at best_generated_state->cost = 974255
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+13 Mar 97
+
+The code used for the ASA_TEST problem closely follows the reference
+given in user.c,
+	%A A. Corana
+	%A M. Marchesi
+	%A C. Martini
+	%A S. Ridella
+	%T Minimizing multimodal functions of continuous variables
+	   with the "simulated annealing" algorithm
+	%J ACM Trans. Mathl. Software
+	%V 13
+	%N 3
+	%P 262-279
+	%D 1987
+and was rewritten from code given to the author in 1992.  Other
+researchers have sent the author different code for this system, and
+all results have agreed within round-off errors.
+
+However, note that the actual problem stated in the above reference is
+harder, as pointed out by Dietmar Auferkorte
+<dietmar.auferkorte@fernuni-hagen.de>, requiring the finding of an
+optimal point and not an optimal region.  The code for that problem is
+given when ASA_TEST_POINT is set to TRUE, and the asa_examples.txt file
+illustrates how that global minimum can be attained.
+
+The following OPTIONS give one instance of tuning that achieves the
+optimal point.  When ASA_TEST_POINT is TRUE, requiring at least ASA
+version 12.14, then in asa_user.h SMALL_FLOAT is set to 1.0E-50,
+QUENCH_COST is set to TRUE, and COST_FILE is set to FALSE.  The
+following OPTIONS also are changed from their defaults:
+
+Limit_Acceptances[10000][ASA_TEST:1000]			99999
+Limit_Generated[99999]					999999
+Maximum_Cost_Repeat[5]					0
+Temperature_Ratio_Scale[1.0E-5]				1.0E-3
+Reanneal_Cost[1]					5
+Reanneal_Parameters[TRUE=1]				0
+
+User_Quench_Cost_Scale[0]=1.0				0.9
+
+I only tuned to the point where I felt there was no longer any trapping
+for long periods in local minima, while the *current_cost_temperature
+reasonably reflected changes in the last...->cost.  The above reference
+usually achieved a cost function of approximately 1.0E-7 in about 1.4E6
+function evaluations.  Some excerpts from the ASA run, using
+ASA_PRINT_MORE set to TRUE, are:
+
+best...->cost=1.769186e+09  *number_accepted=3  *number_generated=10
+best...->cost=101.7291      *number_accepted=1208  *number_generated=8366
+best...->cost=0.3420184     *number_accepted=2698  *number_generated=19687
+best...->cost=0.03375       *number_accepted=4117  *number_generated=28825
+best...->cost=0.003375      *number_accepted=6553  *number_generated=43480
+best...->cost=0.0001313457  *number_accepted=22501  *number_generated=126766
+best...->cost=9.976521e-06  *number_accepted=23174  *number_generated=131821
+best...->cost=4.748379e-07  *number_accepted=24849  *number_generated=145542
+index_v  best...->parameter current_parameter_temp      tangent
+0       -7.698884e-05           2.953263e-19               0
+1       6.797281e-06            2.953263e-19               0
+2       0.0001912543            2.953263e-19               0
+3       -2.385909e-05           2.953263e-19               0
+
+best...->cost=9.07589e-08   *number_accepted=26580  *number_generated=159669
+best...->cost=8.795788e-09  *number_accepted=32810  *number_generated=209870
+best...->cost=1.088038e-10  *number_accepted=39744  *number_generated=266565
+index_v  best...->parameter current_parameter_temp      tangent
+0       8.817353e-06            2.778487e-22               0
+1       1.006906e-07            2.778487e-22               0
+2       9.071919e-07            2.778487e-22               0
+3       3.562237e-07            2.778487e-22               0
+
+best...->cost=7.750598e-13  *number_accepted=61731  *number_generated=451282
+best...->cost=9.92982e-16   *number_accepted=86071  *number_generated=666200
+index_v  best...->parameter current_parameter_temp      tangent
+0       1.111623e-08            7.882882e-28               0
+1       -2.796306e-10           7.882882e-28               0
+2       4.326713e-09            7.882882e-28               0
+3       2.457669e-09            7.882882e-28               0
+
+========================================================================
+@@Quenching ASA_TEST Problem
+
+5 Jan 96
+
+A researcher sent a query, questioning why a new genetic algorithm (GA)
+could find optimal states of the ASA_TEST problem more efficiently than
+ASA, and why ASA failed completely for N = 12 for this system.
+
+: Thank you very much for all the informations. The function we were
+: using was the same as yours. It is indeed a very interesting
+: function. Our results with the GA were closed to VFSR for N=4. For N=8
+: we were faster, for N=12 VFSR does not seem to be able to find the
+: optimum (we find it in an average 63000 evaluations on 10 runs of the
+: GA).
+
+I replied:
+
+> I insisted in this project on not tuning VFSR at all.  In subsequent
+> runs I had no problem getting the global minimum with VFSR for as high
+> as N=12.
+>
+> Tuning of course is quite important as nonlinear systems typically are
+> non-typical, and I do not believe any method of global optimization can
+> perform well across most nonlinear problems without tuning.
+>
+> ...
+>
+> As I said, I'm pretty busy right now, so I do not have time to spend on
+> these test problems.  I gave myself a limit of 15 minutes to play with
+> N=12.  The run is given below.  Within machine accuracy, I get the
+> optimal state with cost = 0 in 5410 generations.  I'm sure I could do
+> better, even having to play more to take into account different random
+> seeds (which of course could require tuning to take into account
+> missing the global optimal point sometimes, etc.)
+
+Here is this quick example (_not_ a statistical study) of the power of
+quenching to solve the 12-dimensional ASA_TEST problem.  The use of
+quenching with ASA is more appropriate to make comparisons with GA, as
+GA techniques by themselves do not offer any kind of weak ergodic
+sampling.
+
+In the Makefile, use
+
+DEFINE_OPTIONS = -DASA_TEST=TRUE -DQUENCH_COST=TRUE \
+-DQUENCH_PARAMETERS=TRUE -DSMALL_FLOAT=1.0E-60
+
+In the asa_opt file, modify as follows:
+
+Limit_Acceptances[10000][ASA_TEST:1000]
+99999
+...
+Cost_Parameter_Scale_Ratio[1.0]
+0.1
+...
+Acceptance_Frequency_Modulus[100]
+50
+...
+Reanneal_Cost[1]
+5
+Reanneal_Parameters[TRUE=1]
+0
+...
+___Define_below_if_OPTIONS_FILE_DATA=TRUE
+ 
+number_parameters=*parameter_dimension
+12
+ 
+Param#:Minimum:Maximum:InitialValue:Integer[1or2]orReal[-1or-2]
+0       -10000  10000   999.0                   -1
+1       -10000  10000   -1007.0                 -1
+2       -10000  10000   1001.0                  -1
+3       -10000  10000   -903.0                  -1
+4       -10000  10000   999.0                   -1
+5       -10000  10000   -1007.0                 -1
+6       -10000  10000   1001.0                  -1
+7       -10000  10000   -903.0                  -1
+8       -10000  10000   999.0                   -1
+9       -10000  10000   -1007.0                 -1
+10      -10000  10000   1001.0                  -1
+11      -10000  10000   -903.0                  -1
+ 
+___Define_below_if_QUENCH_COST_and_OPTIONS_FILE_DATA=TRUE
+ 
+*User_Quench_Cost_Scale
+18.0
+ 
+___Define_below_if_QUENCH_PARAMETERS_and_QUENCH_COST_and_OPTIONS_FILE_DATA=TRUE
+ 
+Param#:User_Quench_Param_Scale[]
+0       18.0
+1       18.0
+2       18.0
+3       18.0
+4       18.0
+5       18.0
+6       18.0
+7       18.0
+8       18.0
+9       18.0
+10      18.0
+11      18.0
+
+Versions after 11.22 do not need any additional changes.  At the end of
+asa_out you should get on a Sun SPARC-2/4.1.3 (other machines may give
+somewhat different results due to their precision and double limit
+defaults)
+
+ COST_REPEATING exit_status = 3
+final_cost = best_generated_state->cost = 0           
+*number_accepted at best_generated_state->cost = 1857
+*number_generated at best_generated_state->cost = 5410
+
+The conclusion to draw is:
+
+> I have no doubts that you could find another algorithm faster than ASA
+> for any particular problem.  I just do not accept that a GA algorithm
+> can solve a system that cannot be solved by ASA.  This may require some
+> different computer resources though, e.g., as ASA may require a very
+> high precision capability to deal with very low temperatures, etc.
+>  
+> At least one moral to draw is that in the hands of an expert a
+> particular global optimization algorithm can usually do quite well on a
+> large number of systems.
+
+========================================================================
+@@Use of COST_FILE on Shubert Problem - SA vs Taboo
+
+12 Feb 95 (updated using version 13.5 on 30 Aug 96)
+
+In
+	%A D. Cvijovic\*'
+	%A J. Klinowski
+	%T Taboo search: An approach to the multiple minima problem
+	%J Science
+	%V 267
+	%D 1995
+	%P 664-666
+some strong claims about the superiority of taboo search over
+genetic algorithms and simulated annealing were made.
+
+I took the only function given that also gave all parameters in this
+article, the Shubert function, and ran a straight ASA test with
+absolutely no tuning.  (I _do_ consider tuning essential for optimum
+use of any global optimization algorithm.  Furthermore, since schedules
+and algorithms used by the other techniques are equivalent to
+quenching, QUENCHing in ASA could have been used to even greater
+advantage in lowering #generated.)  The article states that the numbers
+in Table 3 were obtained by counting the number of generated cost
+functions needed to first attain a known global minimum of -186.7309.
+(There are 18 global minima out of 760 local minima).  Below, the first
+3 lines are the results in that paper for taboo search (TS), and two
+variants of simulated annealing, SA1 and SA2, averaged over 100 runs.
+The last line is the result from ASA.
+		Method		#generated
+		--------------------------
+		SA1		241,215
+		SA2		    780
+		TS		    727
+		ASA		     21
+
+The result of course will vary somewhat with the initial seed for the
+RNG and with the initial guess for the 2 parameters.  As argued for
+many other cases, the fat tail of ASA, creating a rather large
+generated to acceptance ratio, usually insures that the variance of the
+results is not too large.  (Note that here there are 18 global minima
+which may cause more of a spread.)  The 100 iterations of asa() were
+developed from starting values of (5, 5), but using the default to let
+ASA randomly select the initial values for the annealing loop, getting
+		min	=	0
+		max	=	136
+		mean	=	20.5
+		sd	=	22.1
+
+Another criteria used by these authors is that the algorithm be able to
+find the global region 95% of the time.  Although ASA finds the global
+region all the time, if the highest 5% are dropped, then the stats are
+		min	=	0
+		max	=	57
+		mean	=	16.8
+		sd	=	14.0
+
+In general, all authors should exercise caution in promoting any one
+global optimization algorithm over all others for all problems.
+
+To run this, e.g., just modify ASA in four (4) steps:
+ 
+(1)
+Makefile: Change the DEFINE_OPTIONS just above the line
+	## This will run the ASA problem.
+to
+	DEFINE_OPTIONS = -DG_FIELD=14 -DG_PRECISION=9
+(or feed these DEFINE_OPTIONS to your compiler as described in the
+ASA-README).  This just affects the format of the information printed out
+to asa_out.  If you do not have an ANSI compiler, add -DHAVE_ANSI=FALSE
+to these DEFINE_OPTIONS.
+
+(2) In asa_opt set:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+number_parameters=*parameter_dimension                  2
+
+Param#:Minimum:Maximum:InitialValue:Integer[1or2]orReal[-1or-2]
+0       -10     10      5.0             -1
+1       -10     10      5.0             -1
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+(3) Insert into user_cst.c (user_cst.h prior to version 22):
+(4 Oct 2010 corrected by Ceren Kayalar <ckayalar@sabanciuniv.edu>)
+ /* --8<--------8<---- CUT HERE TO CUT-LINE BELOW ----8<--------8<-- */
+  int n, i;
+  double cost, tmp;
+ 
+  cost = 1.0;
+  for (n = 0; n < *parameter_dimension; ++n)
+    {
+      tmp = 0.0;
+      for (i = 1; i < 6; ++i)
+        {
+          tmp += (i * cos ((i + 1) * x[n] + i));
+        }
+        cost *= tmp;
+ 
+      if (cost <= -186.7309 && USER_OPTIONS->N_Accepted > 0)
+        USER_OPTIONS->Immediate_Exit = 1;
+ 
+      return (cost);
+    }
+ /* -->8-------->8---- CUT HERE TO CUT-LINE ABOVE ---->8-------->8-- */
+
+(4)
+In user.c, modify the call to asa() to add a loop with index ngen:
+          for (ngen = 0; ngen < 100; ++ngen)
+            {
+              cost_value =
+                asa (cost_function,
+                     ...
+              fprintf (ptr_out, "Generated %ld\n", USER_OPTIONS->N_Generated);
+            }
+and define "int ngen;" at the top of main.
+
+========================================================================
+@@Colville Examples
+
+12 Feb 93
+
+I was contacted by Zbigniew Michalewicz, author of a new code, GENECOP,
+a  GA-based optimization package available via anonymous ftp from
+unccsun.uncc.edu in directory coe/evol.  He stated that the ASA code
+failed to get any reasonable fit to two Colville problems, a set of
+problems developed by Colville, Floudas and Pardalos.  He demonstrated
+this by offering his own results with GENECOP in which he obtained
+better results that that obtained previously in the literature on one
+these problems.
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+On one Colville problem, after I learned that GENECOP first made
+algebraic substitutions to eliminate equality constraints, this also
+was performed within ASA/VFSR.  GENECOP had produced better results
+than previously obtained in the literature for this example, and
+ASA/VFSR obtained even better results than GENECOP.  The previously
+published results gave a final cost = -47.707579; GENECOP gave cost =
+-47.760765; ASA/VFSR gave cost = -47.76109.  For such systems I have
+suggested that GENECOP be used as a front end to ASA.
+
+________________________________________________________________________
+LIMIT_ACCEPTANCES=1000
+ACCEPTED_TO_GENERATED_RATIO=1.0E-4
+ 
+    parameter_dimension = 7;
+ 
+    parameter_lower_bound[0] = parameter_lower_bound[1] =
+        parameter_lower_bound[2] = parameter_lower_bound[3] =
+        parameter_lower_bound[4] = parameter_lower_bound[5] =
+        parameter_lower_bound[6] =
+        0.00005;
+    parameter_upper_bound[0] = parameter_upper_bound[1] =
+        parameter_upper_bound[2] = parameter_upper_bound[3] =
+        parameter_upper_bound[4] = parameter_upper_bound[5] =
+        parameter_upper_bound[6] =
+        1.0;
+ 
+    parameter_int_real[0] = parameter_int_real[1] =
+        parameter_int_real[2] = parameter_int_real[3] =
+        parameter_int_real[4] = parameter_int_real[5] =
+        parameter_int_real[6] =
+        REAL_TYPE;
+ 
+    c[0] = -6.089;
+    c[1] = -17.164;
+    c[2] = -34.054;
+    c[3] = -5.914;
+    c[4] = -24.721;
+    c[5] = -14.986;
+    c[6] = -24.100;
+    c[7] = -10.708;
+    c[8] = -26.662;
+    c[9] = -22.179;
+ 
+    y[0] = x[0];
+    y[1] = x[1];
+    y[2] = x[2];
+    y[3] = x[3];
+    y[4] = x[4];
+    y[5] = x[5];
+ 
+    y[7] = x[6];
+ 
+    y[9] = -(y[0] + 2 * y[1] + 2 * y[2] + y[5] - 2.0);
+    y[6] = -(y[3] + 2 * y[4] + y[5] - 1.0);
+    y[8] = -0.5 * (y[2] + y[6] + y[7] + y[9] - 1.0);
+ 
+    if (y[6] < 0.000001 || y[8] < 0.000001 || y[9] < 0.000001) {
+        *cost_flag = FALSE;
+        return (0);
+    }
+    res = 0.0;
+    sum = 0.0;
+    for (i = 0; i < 10; ++i)
+        sum = sum + y[i];
+    for (i = 0; i < 10; ++i)
+        res = res + y[i] * (c[i] + log(y[i] / sum));
+ 
+    return (res);
+________________________________________________________________________
+RESULTS
+ 
+best_generated_state=-42.69152   number_accepted=3 number_generated=3
+best_generated_state=-47.15469   number_accepted=45 number_generated=106
+best_generated_state=-47.5866    number_accepted=76 number_generated=200
+best_generated_state=-47.71714   number_accepted=95 number_generated=300
+best_generated_state=-47.73446   number_accepted=109 number_generated=398
+best_generated_state=-47.73524   number_accepted=110 number_generated=401
+best_generated_state=-47.74599   number_accepted=134 number_generated=510
+best_generated_state=-47.7487    number_accepted=145 number_generated=607
+best_generated_state=-47.75136   number_accepted=159 number_generated=718
+best_generated_state=-47.75847   number_accepted=172 number_generated=812
+best_generated_state=-47.75889   number_accepted=190 number_generated=919
+best_generated_state=-47.75908   number_accepted=202 number_generated=1028
+best_generated_state=-47.75932   number_accepted=218 number_generated=1180
+best_generated_state=-47.75936   number_accepted=234 number_generated=1305
+best_generated_state=-47.75999   number_accepted=246 number_generated=1407
+best_generated_state=-47.76015   number_accepted=257 number_generated=1513
+best_generated_state=-47.7606    number_accepted=274 number_generated=1599
+best_generated_state=-47.76061   number_accepted=275 number_generated=1600
+best_generated_state=-47.76084   number_accepted=294 number_generated=1758
+best_generated_state=-47.76097   number_accepted=301 number_generated=1809
+best_generated_state=-47.76106   number_accepted=433 number_generated=3134
+best_generated_state=-47.76108   number_accepted=694 number_generated=6180
+best_generated_state=-47.76109   number_accepted=956 number_generated=9645
+ 
+best_generated_state.parameter[0] =   0.04068754
+best_generated_state.parameter[1] =    0.1481389
+best_generated_state.parameter[2] =     0.782566
+best_generated_state.parameter[3] =  0.001349356
+best_generated_state.parameter[4] =    0.4852847
+best_generated_state.parameter[5] = 0.0006843851
+best_generated_state.parameter[6] =   0.01820262
+ 
+final_cost = best_generated_state.cost = -47.76109   
+number_accepted at best_generated_state.cost = 957
+number_generated at best_generated_state.cost = 9671
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+On the other Colville problem, using the default parameters of ASA, the
+code did indeed hover in a local minimum, likely for so long that it
+might take an enormous amount of human time and unrealistic computer
+precision (to keep sampling at incredibly small temperatures) to find
+the global minimum.  However, just a few minutes of modestly tuning a
+few ASA parameters produced the global minimum.  I felt the default
+options gave starting cost-temperature rates too high, so I changed
+this scale.  I selected the starting values at the arbitrary points 0,
+added greater precision, and also permitted the runs to go longer than
+the "standard" specifications.  Using the ASA options given below, the
+actual set of optimal parameters is found to machine precision.  ASA
+achieves the actual global minimum (within machine precision).  I did
+not spend any extra time fine-tuning options to increase ASA
+efficiency.
+
+________________________________________________________________________
+SMALL_FLOAT=1.0E-35
+Limit_Acceptances=50000
+Temperature_Anneal_Scale=1000
+Cost_Parameter_Scale_Ratio=1.0E-1
+User_Initial_Parameters=TRUE
+Accepted_To_Generated_Ratio=1.0E-4
+
+parameter_dimension = 4;
+
+for (n = 0; n < 4; ++n) {
+    parameter_lower_bound[n] = -10.0;
+    parameter_upper_bound[n] = 10.0;
+    cost_parameters[n] = 0.0;
+    parameter_int_real[n] = REAL_TYPE;
+}
+
+summ = 100.*(x[1]-(x[0]*x[0]))*(x[1]-(x[0]*x[0]))
+    + (1.-x[0])*(1.-x[0])
+    + 90.*(x[3]-(x[2]*x[2]))*(x[3]-(x[2]*x[2]))
+    + (1.-x[2])*(1.-x[2])
+    + 10.1*((x[1]-1.)*(x[1]-1.) + (x[3]-1.)*(x[3]-1.))
+    + 19.8*(x[1]-1.)*(x[3]-1.);
+
+return (summ);
+________________________________________________________________________
+RESULTS
+
+best_generated_state=23.69555     number_accepted=120 number_generated=232
+best_generated_state=0.2942304    number_accepted=429 number_generated=2496
+best_generated_state=0.0005834838 number_accepted=733 number_generated=6229
+best_generated_state=7.848137e-05 number_accepted=3185 number_generated=44762
+best_generated_state=6.384848e-15 number_accepted=19968 number_generated=604224
+[Here, all the best parameters were 1 to printout precision, %12.7g.]
+best_generated_state=7.750362e-23 number_accepted=30510 number_generated=1767254
+[About here some current_parameter_temperature's became the order of
+SMALL_FLOAT.  Resetting SMALL_FLOAT would produce much more efficient
+calculations at and after this point, assuming machine precision is
+still meaningful.]
+best_generated_state=3.736047e-24 number_accepted=33046 number_generated=2194731
+
+GENECOP gave a final cost of 0.0000012 after 10,000 generated states.
+
+========================================================================
+@@OPTIONAL_DATA_PTR and MULTI_MIN
+
+19 Feb 08
+See ASA-README.[], version >= 26.27, for additional guidance on the
+use of OPTIONAL_DATA_PTR and Asa_Data_Ptr.  The section below has been
+edited in a couple of places to conform with the later discussion.
+(Changes in prototypes in asa_usr.h are not included here.)
+
+26 Aug 05
+
+For complex recursive optimization, it is recommended that
+OPTIONAL_DATA_PTR be used instead of trying to adapt SELF_OPTIMIZE.
+
+The following is a section of a `diff -r` of ASA version 26.1 asa_usr.c,
+asa_usr_asa.h and asa_usr_cst.c files with a current project, illustrating
+the use of OPTIONAL_DATA_PTR (and Asa_Data_Ptr) and MULTI_MIN (and
+Multi_[] OPTIONS).  These are the most important files to consider
+for changes.
+
+These excerpts from one of my projects are only meant to be illustrative.
+It is unlikely they can be used directly as templates, especially since
+I have not included other code.  Please be sure to read the Section
+"Use of Documentation for Tuning" in the ASA-README.[] file.
+
+    ------------8<------------ top cut -> bottom ------------->8------------
+diff -r ASA/asa_usr.c SRC/asa_usr.c
+9c9
+< "/* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */"
+---
+> "/* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */"
+39a40,42
+> #if TRD
+>            OPTIONAL_PTR_TYPE * OptionalPointer
+> #endif                          /* TRD */
+88a92,100
+> #if TRD
+>   int n_market;
+>   int index;
+>   int param_bnd_flg;
+>   char infoFile[FNAME_LENGTH];
+>   static int nTrdRulesCalls = 0;
+>   static int nPortRiskCalls = 0;
+>   static Lvl lvlSave;
+> #endif /* TRD */
+135a148,156
+> #if TRD
+> #if FREQ_ENTRY
+>   static int place_flg = 0;
+> 
+>   ++place_flg;
+>   util_errRetPlace (__FILE__, __FUNCTION__, __LINE__, (RETURN) place_flg);
+> #endif /* FREQ_ENTRY */
+> #endif /* TRD */
+> 
+154a176,181
+> 
+> #if TRD                         /* put here to change asa_usr_out... */
+>   USER_OPTIONS->Asa_Data_Dim_Ptr = 1;
+>   USER_OPTIONS->Asa_Data_Ptr = OptionalPointer;
+> #endif /* TRD */
+> 
+166a194,210
+> #if TRD
+>   lvlSave = USER_OPTIONS->Asa_Data_Ptr->lvlCurrent;
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     sprintf (infoFile, "%s%s%s%s", SLASHPTH_TRD, "IO", SLASH,
+>              "asa_usr_out_trd_rules.txt");
+>     ptr_out = fopen (infoFile, "a");
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     sprintf (infoFile, "%s%s%s%s", SLASHPTH_TRD, "IO", SLASH,
+>              "asa_usr_out_port_risk.txt");
+>     ptr_out = fopen (infoFile, "a");
+>   } else {
+>     strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #else /* TRD */
+> 
+262a307
+> #endif /* TRD */
+318a364,367
+> #if TRD
+>   sprintf (infoFile, "%s%s%s%s", SLASHPTH_TRD, "RUN", SLASH, "asa_opt");
+>   if ((ptr_options = fopen (infoFile, "r")) == NULL) {
+> #else /* TRD */
+319a369
+> #endif /* TRD */
+457d506
+< 
+468a518,534
+> #if TRD
+>   /* overrride some defaults in asa_opt */
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     USER_OPTIONS->Limit_Invalid_Generated_States = 10;
+>     /* USER_OPTIONS->Cost_Parameter_Scale_Ratio = 1.0; */
+>     /* USER_OPTIONS->Temperature_Ratio_Scale = 0.001; */
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     USER_OPTIONS->Limit_Invalid_Generated_States = 10;
+>     /* USER_OPTIONS->Cost_Parameter_Scale_Ratio = 1.0; */
+>     /* USER_OPTIONS->Temperature_Ratio_Scale = 0.001; */
+>   } else {
+>     strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+475a542,552
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     strcpy (USER_OPTIONS->Asa_Out_File, "../IO/asa_out_trd_rules.txt");
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     strcpy (USER_OPTIONS->Asa_Out_File, "../IO/asa_out_port_risk.txt");
+>   } else {
+>     strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+505a583,594
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     *parameter_dimension = USER_OPTIONS->Asa_Data_Ptr->nTrdParam;
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     *parameter_dimension = USER_OPTIONS->Asa_Data_Ptr->nMarkets;
+>   } else {
+>     strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+643,653c732,804
+<       cost_value =
+<         asa (USER_COST_FUNCTION,
+<              randflt,
+<              rand_seed,
+<              cost_parameters,
+<              parameter_lower_bound,
+<              parameter_upper_bound,
+<              cost_tangents,
+<              cost_curvature,
+<              parameter_dimension,
+<              parameter_int_real, cost_flag, exit_code, USER_OPTIONS);
+---
+> #if TRD
+>       if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>         ++nTrdRulesCalls;
+>       } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>         ++nPortRiskCalls;
+>       } else {
+>         ;
+>       }
+>       fprintf (ptr_out, "\nnTrdRulesCalls=%d, nPortRiskCalls=%d\n",
+>                nTrdRulesCalls, nPortRiskCalls);
+>       fflush (ptr_out);
+> 
+>       param_bnd_flg = 0;
+>       for (index = 0; index < *parameter_dimension; ++index) {
+>         if (fabs (parameter_upper_bound[index] - parameter_lower_bound[index])
+>             < (double) EPS_DOUBLE) {
+>           ++param_bnd_flg;
+>         } else {
+>           continue;
+>         }
+>       }
+>       if (param_bnd_flg == *parameter_dimension) {
+>         fprintf (ptr_out,
+>                  "\n** asa_main: all parameter_upper_bound=parameter_lower_bound **\n");
+>         fflush (ptr_out);
+>         cost_value =
+>           cost_function (cost_parameters,
+>                          parameter_lower_bound,
+>                          parameter_upper_bound,
+>                          cost_tangents,
+>                          cost_curvature,
+>                          parameter_dimension,
+>                          parameter_int_real, cost_flag, exit_code,
+>                          USER_OPTIONS);
+>         if (((cost_value) != (cost_value))
+>             || (cost_value < -MAX_DOUBLE || cost_value > MAX_DOUBLE)) {
+>           fprintf (ptr_out, "** asa_main: Invalid Cost Function **\n");
+>           fflush (ptr_out);
+>           *exit_code = 8;
+>         } else {
+>           *exit_code = 0;
+>         }
+>       } else {
+>         cost_value =
+>           asa (USER_COST_FUNCTION,
+>                randflt,
+>                rand_seed,
+>                cost_parameters,
+>                parameter_lower_bound,
+>                parameter_upper_bound,
+>                cost_tangents,
+>                cost_curvature,
+>                parameter_dimension,
+>                parameter_int_real, cost_flag, exit_code, USER_OPTIONS);
+>       }
+>       USER_OPTIONS->Asa_Data_Ptr->exit_code = *exit_code;
+>       if (lvlSave != USER_OPTIONS->Asa_Data_Ptr->lvlCurrent) {
+>         /* reset ptr_out */
+>         if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>           sprintf (infoFile, "%s%s%s%s", SLASHPTH_TRD, "IO", SLASH,
+>                    "asa_usr_out_trd_rules.txt");
+>           ptr_out = fopen (infoFile, "a");
+>         } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>           sprintf (infoFile, "%s%s%s%s", SLASHPTH_TRD, "IO", SLASH,
+>                    "asa_usr_out_port_risk.txt");
+>           ptr_out = fopen (infoFile, "a");
+>         } else {
+>           strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>           Exit_USER (user_exit_msg);
+>           return (-3);
+>         }
+>       }
+> #endif /* TRD */
+785a937,989
+> #if TRD
+>   /* multiple sets of parameters */
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     if (param_bnd_flg == *parameter_dimension) {
+>       for (multi_index = 0; multi_index < USER_OPTIONS->Multi_Number;
+>            multi_index++) {
+>         USER_OPTIONS->Asa_Data_Ptr->Pmulti[multi_index] = cost_value;
+>         for (n_param = 0; n_param < USER_OPTIONS->Asa_Data_Ptr->nTrdParam;
+>              ++n_param) {
+>           USER_OPTIONS->Multi_Params[multi_index][n_param] =
+>             cost_parameters[n_param];
+>         }
+>       }
+>     }
+>     for (multi_index = 0; multi_index < USER_OPTIONS->Multi_Number;
+>          multi_index++) {
+>       USER_OPTIONS->Asa_Data_Ptr->Pmulti[multi_index] =
+>         USER_OPTIONS->Multi_Cost[multi_index];
+>       for (n_param = 0; n_param < *parameter_dimension; ++n_param) {
+>         USER_OPTIONS->Asa_Data_Ptr->trdParamMulti[n_param][multi_index] =
+>           USER_OPTIONS->Multi_Params[multi_index][n_param];
+>       }
+>     }
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     /* multiple sets of contracts */
+>     if (param_bnd_flg == *parameter_dimension) {
+>       for (multi_index = 0; multi_index < USER_OPTIONS->Multi_Number;
+>            multi_index++) {
+>         USER_OPTIONS->Asa_Data_Ptr->Qmulti[multi_index] = cost_value;
+>         for (n_market = 0; n_market < *parameter_dimension; n_market++) {
+>           USER_OPTIONS->Multi_Params[multi_index][n_market] =
+>             cost_parameters[n_market];
+>         }
+>       }
+>     }
+>     for (multi_index = 0; multi_index < USER_OPTIONS->Multi_Number;
+>          multi_index++) {
+>       USER_OPTIONS->Asa_Data_Ptr->Qmulti[multi_index] =
+>         USER_OPTIONS->Multi_Cost[multi_index];
+>       for (n_market = 0; n_market < *parameter_dimension; n_market++) {
+>         USER_OPTIONS->Asa_Data_Ptr->Market[n_market].
+>           contractMulti[multi_index] =
+>           USER_OPTIONS->Asa_Data_Ptr->Market[n_market].contractPre +
+>           (int) USER_OPTIONS->Multi_Params[multi_index][n_market];
+>       }
+>     }
+>   } else {
+>     strcpy (user_exit_msg, "asa_main(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+799a1004,1008
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     USER_OPTIONS->Asa_Data_Ptr = NULL;
+>   }
+> #else
+800a1010
+> #endif /* TRD */
+843a1054
+> 
+963a1175,1203
+> 
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     for (index = 0; index < *parameter_dimension; ++index) {
+>       parameter_lower_bound[index] =
+>         USER_OPTIONS->Asa_Data_Ptr->trdParamMin[index];
+>       parameter_upper_bound[index] =
+>         USER_OPTIONS->Asa_Data_Ptr->trdParamMax[index];
+>       parameter_int_real[index] = REAL_TYPE;
+>       cost_parameters[index] = USER_OPTIONS->Asa_Data_Ptr->trdParam[index];
+>     }
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     for (index = 0; index < *parameter_dimension; ++index) {
+>       parameter_lower_bound[index] =
+>         (double) USER_OPTIONS->Asa_Data_Ptr->Market[index].bndOrderDn;
+>       parameter_upper_bound[index] =
+>         (double) USER_OPTIONS->Asa_Data_Ptr->Market[index].bndOrderUp;
+>       parameter_int_real[index] = INTEGER_TYPE;
+>       cost_parameters[index] = (int) (0.5 *
+>                                       (parameter_lower_bound[index] +
+>                                        parameter_upper_bound[index]));
+>     }
+>   } else {
+>     strcpy (user_exit_msg, "initialize_parameters(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+1080a1321,1339
+> #if TRD
+>   /* TRD_ASA -- tag to locate these settings */
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     USER_OPTIONS->User_Quench_Cost_Scale[0] = 0.7;
+>     for (index = 0; index < *parameter_dimension; ++index) {
+>       USER_OPTIONS->User_Quench_Param_Scale[index] = 0.7;
+>     }
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     USER_OPTIONS->User_Quench_Cost_Scale[0] = 1;
+>     for (index = 0; index < *parameter_dimension; ++index) {
+>       USER_OPTIONS->User_Quench_Param_Scale[index] = 1;
+>     }
+>   } else {
+>     strcpy (user_exit_msg, "initialize_parameters(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+1117a1377,1393
+> 
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     USER_OPTIONS->Multi_Specify = 0;
+>     for (index = 0; index < *parameter_dimension; ++index)
+>       USER_OPTIONS->Coarse_Resolution[index] = 0.05;
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     USER_OPTIONS->Multi_Specify = 0;
+>     for (index = 0; index < *parameter_dimension; ++index)
+>       USER_OPTIONS->Coarse_Resolution[index] = 100;     /* 100 contracts */
+>   } else {
+>     strcpy (user_exit_msg, "initialize_parameters(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+1137a1414,1416
+> #if TRD
+>   USER_OPTIONS->Queue_Size = 0; /* set Queue_Size=0 while tuning */
+> #endif /* TRD */
+1142a1422,1434
+> 
+> #if TRD
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     USER_OPTIONS->Multi_Number = USER_OPTIONS->Asa_Data_Ptr->multiTrdParam;
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     USER_OPTIONS->Multi_Number = USER_OPTIONS->Asa_Data_Ptr->multiContracts;
+>   } else {
+>     strcpy (user_exit_msg, "initialize_parameters(): incorrect lvlCurrent");
+>     Exit_USER (user_exit_msg);
+>     return (-3);
+>   }
+> #endif /* TRD */
+> 
+diff -r ASA/asa_usr_asa.h SRC/asa_usr_asa.h
+14c14
+<   /* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */
+---
+>   /* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */
+46a47,92
+> #ifndef TRD
+> #define TRD TRUE
+> #endif
+> 
+>   /* also in trd.h */
+> #if TRD
+> #ifndef LONGINT
+> #define LONGINT 1
+> #else
+> #define LONGINT 0
+> #endif
+> #if LONGINT
+> #define TRD_LONGINT long int
+> #else
+> #define TRD_LONGINT int
+> #endif
+> 
+> #include "trd_struct.h"
+> 
+>   void util_errRetPlace (const char *File, const char *Function,
+>                          const int Line, RETURN returnflg);
+> 
+> #define SMALL_FLOAT 1.0E-12
+> #define OPTIONS_FILE TRUE
+> #define OPTIONS_FILE_DATA FALSE
+> #define USER_ASA_OUT TRUE
+> #define USER_OUT "defined_by_lvlCurrent"
+> 
+> #define ASA_LIB TRUE
+> #define QUENCH_PARAMETERS TRUE
+> #define QUENCH_COST TRUE
+> #define ASA_RESOLUTION TRUE
+> #define ASA_QUEUE TRUE
+> #define MULTI_MIN TRUE
+> #define FITLOC FALSE
+> #define ASA_PRINT_MORE TRUE     /* for tuning */
+> #define ASA_PIPE_FILE FALSE
+> 
+> #define OPTIONAL_DATA_PTR TRUE
+> #define OPTIONAL_PTR_TYPE PORTFOLIO
+> #ifndef TIME_CALC
+> #define TIME_CALC FALSE
+> #endif
+> 
+> #define INCL_STDOUT FALSE
+> #endif                          /* TRD */
+diff -r ASA/asa_usr_cst.c SRC/asa_usr_cst.c
+8c8
+<  /* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */
+---
+>  /* $Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $ */
+65a66,113
+> #if TRD
+>   int n, p;
+>   double cost;
+>   char usr_cst_exit_msg[160];   /* temp storage for exit messages */
+> 
+> #if FREQ_ENTRY
+>   static int place_flg = 0;
+> 
+>   ++place_flg;
+>   util_errRetPlace (__FILE__, __FUNCTION__, __LINE__, (RETURN) place_flg);
+> #endif /* FREQ_ENTRY */
+> 
+>   cost = 0;
+>   n = p = 0;
+> 
+>   if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == TRD_RULES) {
+>     for (p = 0; p < USER_OPTIONS->Asa_Data_Ptr->nTrdParam; ++p) {
+>       USER_OPTIONS->Asa_Data_Ptr->trdParam[p] = x[p];
+>     }
+>     trad_objective (USER_OPTIONS->Asa_Data_Ptr);
+>     if (USER_OPTIONS->Asa_Data_Ptr->returnflg != ERR_NONE) {
+>       USER_OPTIONS->Immediate_Exit = TRUE;
+>     }
+>     cost = USER_OPTIONS->Asa_Data_Ptr->cost_function_trad;
+>   } else if (USER_OPTIONS->Asa_Data_Ptr->lvlCurrent == PORT_RISK) {
+>     for (n = 0; n < USER_OPTIONS->Asa_Data_Ptr->nMarkets; ++n) {
+>       /* optimize dContracts */
+>       USER_OPTIONS->Asa_Data_Ptr->Market[n].contractPst =
+>         USER_OPTIONS->Asa_Data_Ptr->Market[n].contractPre + (int) x[n];
+>     }
+>     risk_objective (USER_OPTIONS->Asa_Data_Ptr);
+>     if (USER_OPTIONS->Asa_Data_Ptr->returnflg != ERR_NONE) {
+>       USER_OPTIONS->Immediate_Exit = TRUE;
+>     }
+>     cost = USER_OPTIONS->Asa_Data_Ptr->cost_function_risk;
+>   } else {
+>     strcpy (usr_cst_exit_msg, "asa_usr_cst.c: incorrect lvlCurrent");
+>     Exit_USER (usr_cst_exit_msg);
+>     return (-3);
+>   }
+> 
+> #if 0                           /* Immediate_Exit */
+>   if (USER_OPTIONS->N_Accepted == 1)
+>     USER_OPTIONS->Immediate_Exit = TRUE;
+> #endif /* 0 Immediate_Exit */
+> 
+>   return cost;
+> #endif /* TRD */
+    ------------8<------------ bottom cut <- top ------------->8------------
+
+========================================================================
+________________________________________________________________________
+ 
+Lester Ingber <ingber@ingber.com>
+Copyright (c) 1993-2012 Lester Ingber.  All Rights Reserved.
+
+$Id: asa_examples.txt,v 10.26 2011/12/18 13:31:51 ingber Exp $
+
