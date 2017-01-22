@@ -96,42 +96,11 @@ cost_function (x,
 
 
 	ans += pow(_f.eval(0) - 1.00,2);
-	// ans += pow(_f.eval(1) - 0.50,2);
-	// ans += pow(_f.eval(2) - 0.00,2);
-	// ans += pow(_f.eval(3) - 0.50,2);
-	// ans += pow(_f.eval(4) - 0.25,2);
-	// ans += pow(_f.eval(5) - 0.00,2);
-	// ans += pow(_f.eval(6) - 0.00,2);
-	// ans += pow(_f.eval(7) - 0.00,2);
-	// ans += pow(_f.eval(8) - 0.00,2);
-	// ans += pow(_f.eval(9) - 0.00,2);
-	// ans += pow(_f.eval(10) - 0.50,2);
-	// ans += pow(_f.eval(11) - 1.00,2);
-	// ans += pow(_f.eval(12) - 0.50,2);
-	// ans += pow(_f.eval(13) - 0.50,2);
-	// ans += pow(_f.eval(14) - 0.50,2);
-	// ans += pow(_f.eval(15) - 1.00,2);
-	// ans += pow(_f.eval(16) - 0.50,2);
-	// ans += pow(_f.eval(17) - 0.00,2);
-	// ans += pow(_f.eval(18) - 0.00,2);
-	// ans += pow(_f.eval(19) - 0.00,2);
-	// ans += pow(_f.eval(20) - 0.00,2);
-	// ans += pow(_f.eval(21) - 0.00,2);
-	// ans += pow(_f.eval(22) - 0.25,2);
-	// ans += pow(_f.eval(23) - 0.50,2);
-	// ans += pow(_f.eval(24) - 0.00,2);
-	// ans += pow(_f.eval(25) - 0.50,2);
-	// ans += pow(_f.eval(26) - 1.00,2);
-
-
-
 
 	return ans;
 
 
-  /* *** Insert the body of your cost function here, or warnings
-   * may occur if COST_FILE = TRUE & ASA_TEST != TRUE ***
-   * Include ADAPTIVE_OPTIONS below if required */
+
 #if ASA_TEST
 #else
 #if ADAPTIVE_OPTIONS

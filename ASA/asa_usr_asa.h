@@ -48,7 +48,7 @@ extern "C" {
 #endif
 #if ASA_TEMPLATE_LIB
 #define ASA_LIB TRUE
-#define ASA_TEST TRUE
+#define ASA_SAVE FALSE
 #endif
 
 #ifndef ASA_TEMPLATE_ASA_OUT_PID
@@ -62,32 +62,32 @@ extern "C" {
 #define ASA_TEMPLATE_MULTIPLE FALSE
 #endif
 #if ASA_TEMPLATE_MULTIPLE
-#define COST_FILE FALSE
+#define COST_FILE TRUE
 #define USER_ASA_OUT TRUE
-#define ASA_TEST TRUE
+#define ASA_SAVE FALSE
 #define QUENCH_COST TRUE
 #define QUENCH_PARAMETERS TRUE
-#define OPTIONS_FILE FALSE
+#define OPTIONS_FILE TRUE
 #endif
 
 #ifndef ASA_TEMPLATE_SELFOPT
 #define ASA_TEMPLATE_SELFOPT FALSE
 #endif
 #if ASA_TEMPLATE_SELFOPT
-#define COST_FILE FALSE
-#define SELF_OPTIMIZE TRUE
-#define OPTIONAL_DATA_DBL TRUE
+#define COST_FILE TRUE
+#define SELF_OPTIMIZE FALSE
+#define OPTIONAL_DATA_DBL FALSE
 #define USER_ASA_OUT TRUE
-#define ASA_TEST TRUE
-#define OPTIONS_FILE FALSE
+#define ASA_SAVE FALSE
+#define OPTIONS_FILE TRUE
 #endif
 
 #ifndef ASA_TEMPLATE_SAMPLE
 #define ASA_TEMPLATE_SAMPLE FALSE
 #endif
 #if ASA_TEMPLATE_SAMPLE
-#define COST_FILE FALSE
-#define ASA_SAMPLE TRUE
+#define COST_FILE TRUE
+#define ASA_SAMPLE FALSE
 #define USER_ACCEPTANCE_TEST TRUE
 #define USER_COST_SCHEDULE TRUE
 #define OPTIONS_FILE_DATA FALSE
@@ -98,18 +98,18 @@ extern "C" {
 #define ASA_TEMPLATE_PARALLEL FALSE
 #endif
 #if ASA_TEMPLATE_PARALLEL
-#define COST_FILE FALSE
-#define ASA_TEST TRUE
-#define ASA_PARALLEL TRUE
+#define COST_FILE TRUE
+#define ASA_SAVE FALSE
+#define ASA_PARALLEL FALSE
 #endif
 
 #ifndef ASA_TEMPLATE_SAVE
 #define ASA_TEMPLATE_SAVE FALSE
 #endif
 #if ASA_TEMPLATE_SAVE
-#define COST_FILE FALSE
-#define ASA_TEST TRUE
-#define ASA_SAVE TRUE
+#define COST_FILE TRUE
+#define ASA_SAVE FALSE
+#define ASA_SAVE FALSE
 #define QUENCH_PARAMETERS TRUE
 #define QUENCH_COST TRUE
 #endif
@@ -120,8 +120,8 @@ extern "C" {
 #if ASA_TEMPLATE_QUEUE
 #define ASA_QUEUE TRUE
 #define ASA_RESOLUTION FALSE
-#define ASA_TEST TRUE
-#define COST_FILE FALSE
+#define ASA_SAVE FALSE
+#define COST_FILE TRUE
 #define ASA_PRINT_MORE TRUE
 #endif
 
@@ -129,8 +129,8 @@ extern "C" {
 #define ASA_TEST_POINT FALSE
 #endif
 #if ASA_TEST_POINT
-#define ASA_TEST TRUE
-#define COST_FILE FALSE
+#define ASA_SAVE FALSE
+#define COST_FILE TRUE
 #define SMALL_FLOAT 1.0E-50
 #define QUENCH_COST TRUE
 #endif
@@ -144,7 +144,7 @@ extern "C" {
 #endif
 
 #ifndef ASA_FUZZY
-#define ASA_FUZZY FALSE
+#define ASA_FUZZY TRUE
 #endif
 
 #ifndef ASA_FUZZY_PRINT
@@ -422,14 +422,14 @@ extern "C" {
 #define ASA_SAVE_OPT FALSE
 #endif
 #if ASA_SAVE_OPT
-#define ASA_SAVE TRUE
+#define ASA_SAVE FALSE
 #endif
 
 #ifndef ASA_SAVE_BACKUP
 #define ASA_SAVE_BACKUP FALSE
 #endif
 #if ASA_SAVE_BACKUP
-#define ASA_SAVE TRUE
+#define ASA_SAVE FALSE
 #endif
 
 #ifndef ASA_SAVE
