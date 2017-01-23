@@ -7,14 +7,46 @@ import tensorflow as tf
 
 
 asa_module = tf.load_op_library('/Users/Eddie/.virtualenvs/opt/lib/python2.7/site-packages/tensorflow/core/user_ops/asa.so')
-with tf.Session(''):
-    
-    params = tf.Variable([1,2,3,4],name='params')
-    paramBounds = tf.Variable([[-10,-10,-10,-10],[10,10,10,10]],name='paramBounds')
-    paramTemps = tf.Variable([1,1,1,1],name='paramTemps')
+
+
+params = tf.Variable([1,2,3,4],name='params',dtype=tf.float32)
+paramBounds = tf.Variable([[-10,-10,-10,-10],[10,10,10,10]],name='paramBounds',dtype=tf.float32)
+param_temps = tf.Variable([1,1,1,1],name='param_temps',dtype=tf.float32)
+
+potential_new_point = asa_module.point_generator(params,param_temps,paramBounds)
+
+accept_temp = tf.Variable([2.0],dtype=tf.float32)
+
+new_cost = tf.Variable([5.0],dtype=tf.float32)
+
+current_cost = tf.Variable([4.0],dtype=tf.float32)
+
+accepted,count = asa_module.accept_test(potential_new_point,accept_temp,new_cost,current_cost)
+
+
+#     c
+#     best_cost
+#     # current_cost
+#     param_temps_initial
+#     # param_temps
+#     param_temps_anneal_time
+#     accept_temp_initial
+#     # accept_temp
+#     accept_temp_anneal_time
+#     gradients
+# asa_module.re_anneal(c,)
+
+ans = asa_module.my_function(params)
+
+with tf.Session() as sess:
+
+    sess.run(tf.global_variables_initializer())
 
     print('About to try this thing')
-    print(asa_module.point_generator(params,paramTemps,bounds=paramBounds).eval())
+    print(sess.run(ans))
+
+
+
 
 # class adaptiveSimulatedAnnealingModel(object):
     
