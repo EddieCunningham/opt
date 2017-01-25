@@ -87,7 +87,8 @@ asa_module = tf.load_op_library('../tensorflow/bazel-bin/tensorflow/core/user_op
 class adaptiveSimulatedAnnealingModel(object):
     
     def __init__(self,bounds,f,c,q):
-        self._param_bounds = tf.Variable(bounds,name='bounds',dtype=tf.float32)
+        self._param_bounds = tf.Variable(bounds,name='param_bounds',dtype=tf.float32)
+        # self._param_bounds = tf.Variable(bounds,name='bounds',dtype=tf.float32)
         self._dims = tf.TensorShape(self._param_bounds.get_shape()[1])
         self._f = f
         self._c = tf.Variable(c,name='c',dtype=tf.float32)
@@ -119,7 +120,6 @@ class adaptiveSimulatedAnnealingModel(object):
         self._accept_temp = tf.Variable(self._accept_temp_initial,name='accept_temp',dtype=tf.float32)
         self._accept_temp_anneal_time = tf.Variable(0,name='accept_temp_anneal_time',dtype=tf.float32)
 
-        self.initGradient()
         self.train_step()
 
     #########################################################################################################################
@@ -164,7 +164,8 @@ class adaptiveSimulatedAnnealingModel(object):
         def updateBest():
             self._best_cost.assign(newCost)
             self._best_params.assign(newPoint)
-        return tf.cond(predUpdateBest,updateBest,lambda: tf.no_op(),name='updateBestParams')
+            return [self._best_cost,self._best_params]
+        return tf.cond(predUpdateBest,updateBest,lambda:[self._best_cost,self._best_params],name='updateBestParams')
 
     def tryTempAnneal(self):
         predTempAnneal = tf.equal(self._iters,self._itersUntilTempAnneal,name='predTempAnneal')
@@ -185,13 +186,18 @@ class adaptiveSimulatedAnnealingModel(object):
     def train_step(self):
 
         newPoint,newCost,accepted = self.tryPoint()
-        self._iters = tf.add(tf.constant(1),self._iters)
+        self._iters.assign_add(1)
+        # self._iters = tf.add(tf.constant(1),self._iters)
 
         def weAccepted(newPoint_,newCost_):
-            self._numbAccepted = tf.add(tf.constant(1),self._numbAccepted)
-            self.tryUpdateBest(newPoint_,newCost_)
+            self._numbAccepted.assign_add(1)
+            # self._numbAccepted = tf.add(tf.constant(1),self._numbAccepted)
+            tub = self.tryUpdateBest(newPoint_,newCost_)
+            ans = [self._numbAccepted]
+            ans.extend(tub)
+            return ans
 
-        ca = tf.cond(accepted,lambda: weAccepted(newPoint,newCost),lambda: tf.no_op(), name='checkAccepted')
+        ca = tf.cond(accepted,lambda: weAccepted(newPoint,newCost),lambda:[self._numbAccepted,self._best_cost,self._best_params], name='checkAccepted')
         ta = self.tryTempAnneal()
         ra = self.tryReAnneal()
 
@@ -202,17 +208,18 @@ class adaptiveSimulatedAnnealingModel(object):
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
 
-            i = 0
-            while(t < self._totalIters):
-                sess.run(self.train_step)
+            # i = 0
+            # while(t < self._totalIters):
+            #     sess.run(self.train_step)
 
 
-bounds = np.array([[-10,-10,-10,-10],[10,10,10,10]])
+bounds = [[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]]
 f = asa_module.my_function
 c = 1.0
 q = 1.0
 
 asa = adaptiveSimulatedAnnealingModel(bounds,f,c,q)
+
 asa.run()
 
 
