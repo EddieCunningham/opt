@@ -9,117 +9,96 @@ from tensorflow.python.framework import ops
 
 @ops.RegisterGradient("MyFunction")
 def _my_function_grad(op, grad):
-    # print('op is: '+str(op))
-    # print('grad is: '+str(grad))
-    # print('ans is: '+str(2*tf.multiply(op.inputs[0],grad)))
     return [2*tf.multiply(op.inputs[0],grad)]
 
 
 asa_module = tf.load_op_library('../tensorflow/bazel-bin/tensorflow/core/user_ops/asa.so')
 
-# params = tf.Variable([1,2,3,4],name='params',dtype=tf.float32)
-# param_bounds = tf.Variable([[-10,-10,-10,-10],[10,10,10,10]],name='param_bounds',dtype=tf.float32)
-# param_temps = tf.Variable([1,1,1,1],name='param_temps',dtype=tf.float32)
-
-# potential_new_point = asa_module.point_generator(params,param_temps,param_bounds)
-
-# accept_temp = tf.Variable([2.0],dtype=tf.float32)
-
-# new_cost = tf.Variable([5.0],dtype=tf.float32)
-
-# current_cost = tf.Variable([4.0],dtype=tf.float32)
-
-# accepted,count = asa_module.accept_test(accept_temp,new_cost,current_cost)
-
-# c = tf.Variable([1.0],name='c',dtype=tf.float32)
-# q = tf.Variable([1.0],name='q',dtype=tf.float32)
-# best_cost = tf.Variable([1.0],name='c',dtype=tf.float32)
-# # current_cost
-# param_temps_initial = tf.Variable([1,1,1,1],name='param_temps_initial',dtype=tf.float32)
-# # param_temps
-# param_temps_anneal_time = tf.Variable([1,1,1,1],name='param_temps_anneal_time',dtype=tf.float32)
-# accept_temp_initial = tf.Variable([1.0],name='accept_temp_initial',dtype=tf.float32)
-# accept_temp = tf.Variable([5.0],name='accept_temp',dtype=tf.float32)
-# accept_temp_anneal_time = tf.Variable([1.0],name='accept_temp_anneal_time',dtype=tf.float32)
-# grad = tf.Variable([1,1,1,1],name='param_temps_initial',dtype=tf.float32)
-
-
-# reanneal = asa_module.re_anneal(c,best_cost,current_cost,\
-#     param_temps_initial,param_temps,param_temps_anneal_time,\
-#     accept_temp_initial,accept_temp,accept_temp_anneal_time,\
-#     grad)
-
-# tempanneal = asa_module.temp_anneal(c,q,\
-#     param_temps_initial,param_temps,param_temps_anneal_time,\
-#     accept_temp_initial,accept_temp,accept_temp_anneal_time)
-
-
-# ans = asa_module.my_function(params)
-
-# # grad = tf.gradients(ans,params)
-
-# writer = tf.summary.FileWriter('.', graph=tf.get_default_graph())
-
-# with tf.Session() as sess:
-
-#     sess.run(tf.global_variables_initializer())
-
-#     print('params: '+str(params))
-#     print(sess.run(params))
-
-#     print('ans: '+str(ans))
-#     print(sess.run(ans))
-
-#     print('reanneal: '+str(reanneal))
-#     print(sess.run(reanneal))
-
-#     print('tempanneal: '+str(tempanneal))
-#     print(sess.run(tempanneal))
-
-#     print('accept_temp: '+str(accept_temp))
-#     print(sess.run(accept_temp))
-
-#     # print('grad: '+str(grad))
-#     # print(sess.run(grad))
-
-
-
 class adaptiveSimulatedAnnealingModel(object):
-    
-    def __init__(self,bounds,f,c,q):
-        self._param_bounds = tf.Variable(bounds,name='param_bounds',dtype=tf.float32)
-        # self._param_bounds = tf.Variable(bounds,name='bounds',dtype=tf.float32)
+
+    # def __init__(self,params_0,bounds,f,sess):
+    #     self._sess = sess
+
+    #     # q = tf.FIFOQueue(1,'float')
+    #     # init = q.enqueue(params_0)
+
+    #     # self._params = q.dequeue()
+    #     self._params = tf.Variable(params_0,name='params',dtype=tf.float32)
+        
+    #     self._param_bounds = tf.Variable(bounds,name='bounds',dtype=tf.float32)
+    #     self._dims = tf.TensorShape(self._param_bounds.get_shape()[1])
+    #     self._f = f
+    #     self._c = tf.placeholder(tf.float32,name='c')
+    #     self._q = tf.placeholder(tf.float32,name='q')
+    #     self._current_cost = tf.Variable(self._f(self._params.initialized_value()),name='current_cost',dtype=tf.float32)
+
+
+    #     self._totalIters = tf.placeholder(tf.float32,name='totalIters')
+
+    #     self._numbAccepted = tf.Variable(0,name='numbAccepted',dtype=tf.float32)
+    #     self._acceptUntilReAnneal = tf.placeholder(tf.float32,name='acceptUntilReAnneal')       
+
+    #     self._iters = tf.Variable(0,name='iters',dtype=tf.float32)
+    #     self._itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal')     
+
+    #     self.build_graph()
+
+    # def build_graph(self):
+        
+    #     self._best_params = tf.Variable(self._params.initialized_value())
+    #     self._best_cost = tf.Variable(self._current_cost.initialized_value())
+
+    #     self._param_temps_initial = tf.Variable(np.ones(self._dims),name='param_temps_initial',dtype=tf.float32)
+    #     self._param_temps = tf.Variable(self._param_temps_initial.initialized_value(),name='param_temps',dtype=tf.float32)
+    #     self._param_temps_anneal_time = tf.Variable(np.zeros(self._dims),name='param_temps_anneal_time',dtype=tf.float32)
+
+    #     self._accept_temp_initial = tf.Variable(self._f(self._params.initialized_value()),name='accept_temp_initial',dtype=tf.float32)
+    #     self._accept_temp = tf.Variable(self._accept_temp_initial.initialized_value(),name='accept_temp',dtype=tf.float32)
+    #     self._accept_temp_anneal_time = tf.Variable(0,name='accept_temp_anneal_time',dtype=tf.float32)
+
+    #     self.train_step()
+
+    #########################################################################################################################
+
+    def __init__(self,f,sess):
+        self._sess = sess
+
+        self.init_params = tf.placeholder(tf.float32)
+        self.init_current_cost = tf.placeholder(tf.float32)
+        self.init_numbAccepted = tf.placeholder(tf.float32)
+        self.init_iters = tf.placeholder(tf.float32)
+        self.init_best_params = tf.placeholder(tf.float32)
+        self.init_best_cost = tf.placeholder(tf.float32)
+        self.init_param_temps_initial = tf.placeholder(tf.float32)
+        self.init_param_temps = tf.placeholder(tf.float32)
+        self.init_param_temps_anneal_time = tf.placeholder(tf.float32)
+        self.init_accept_temp_initial = tf.placeholder(tf.float32)
+        self.init_accept_temp = tf.placeholder(tf.float32)
+        self.init_accept_temp_anneal_time = tf.placeholder(tf.float32)
+
+        initVals = [self.init_params,self.init_current_cost,self.init_numbAccepted,self.init_iters,self.init_best_params,self.init_best_cost,self.init_param_temps_initial,self.init_param_temps,self.init_param_temps_anneal_time,self.init_accept_temp_initial,self.init_accept_temp,self.init_accept_temp_anneal_time]
+
+        self._queue = tf.FIFOQueue(12,'float')
+        self._queue_init = self._queue.enqueue(initVals)
+
+        self._params,self._current_cost,self._numbAccepted,self._iters,self._best_params,self._best_cost,self._param_temps_initial,self._param_temps,self._param_temps_anneal_time,self._accept_temp_initial,self._accept_temp,self._accept_temp_anneal_time = q.dequeue()
+        
+        
+        self._param_bounds = tf.placeholder(tf.float32,name='bounds')
         self._dims = tf.TensorShape(self._param_bounds.get_shape()[1])
         self._f = f
-        self._c = tf.Variable(c,name='c',dtype=tf.float32)
-        self._q = tf.Variable(q,name='q',dtype=tf.float32)
+        self._c = tf.placeholder(tf.float32,name='c')
+        self._q = tf.placeholder(tf.float32,name='q')
 
-        self._totalIters = tf.Variable(100,name='totalIters',dtype=tf.int32)
 
-        self._numbAccepted = tf.Variable(0,name='numbAccepted',dtype=tf.int32)
-        self._acceptUntilReAnneal = tf.Variable(10,name='acceptUntilReAnneal',dtype=tf.int32)
-
-        self._iters = tf.Variable(0,name='iters',dtype=tf.int32)
-        self._itersUntilTempAnneal = tf.Variable(10,name='itersUntilTempAnneal',dtype=tf.int32)
+        self._totalIters = tf.placeholder(tf.float32,name='totalIters')
+        self._acceptUntilReAnneal = tf.placeholder(tf.float32,name='acceptUntilReAnneal')       
+        self._itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal')     
 
         self.build_graph()
 
     def build_graph(self):
-        inBetween = tf.random_uniform(self._dims)+(tf.slice(self._param_bounds,[0,0],[1,-1])+tf.slice(self._param_bounds,[1,0],[1,-1]))/2.0
-        self._params = tf.Variable(inBetween,name='params',dtype=tf.float32)
-        self._current_cost = tf.Variable(self._f(self._params),name='current_cost',dtype=tf.float32)
         
-        self._best_params = tf.Variable(self._params)
-        self._best_cost = tf.Variable(self._current_cost)
-
-        self._param_temps_initial = tf.Variable(np.ones(self._dims),name='param_temps_initial',dtype=tf.float32)
-        self._param_temps = tf.Variable(self._param_temps_initial,name='param_temps',dtype=tf.float32)
-        self._param_temps_anneal_time = tf.Variable(np.zeros(self._dims),name='param_temps_anneal_time',dtype=tf.float32)
-
-        self._accept_temp_initial = tf.Variable(self._f(self._params),name='accept_temp_initial',dtype=tf.float32)
-        self._accept_temp = tf.Variable(self._accept_temp_initial,name='accept_temp',dtype=tf.float32)
-        self._accept_temp_anneal_time = tf.Variable(0,name='accept_temp_anneal_time',dtype=tf.float32)
-
         self.train_step()
 
     #########################################################################################################################
@@ -187,11 +166,9 @@ class adaptiveSimulatedAnnealingModel(object):
 
         newPoint,newCost,accepted = self.tryPoint()
         self._iters.assign_add(1)
-        # self._iters = tf.add(tf.constant(1),self._iters)
 
         def weAccepted(newPoint_,newCost_):
             self._numbAccepted.assign_add(1)
-            # self._numbAccepted = tf.add(tf.constant(1),self._numbAccepted)
             tub = self.tryUpdateBest(newPoint_,newCost_)
             ans = [self._numbAccepted]
             ans.extend(tub)
@@ -201,27 +178,74 @@ class adaptiveSimulatedAnnealingModel(object):
         ta = self.tryTempAnneal()
         ra = self.tryReAnneal()
 
-        return [self._iters,ca,ta,ra]
+        allVars = [self._params,self._current_cost,self._numbAccepted,self._iters,self._best_params,self._best_cost,self._param_temps_initial,self._param_temps,self._param_temps_anneal_time,self._accept_temp_initial,self._accept_temp,self._accept_temp_anneal_time]
+        addBackOn = self._queue.enqueue_many(allVars)
+
+        return addBackOn
 
 
-    def run(self):
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
+    def myRun(self,feedDict):
+        i = 0
+        while(i < 10):
+            print(sess.run(self.train_step(),feed_dict=feedDict))
+            i += 1
 
-            # i = 0
-            # while(t < self._totalIters):
-            #     sess.run(self.train_step)
+# params_0 = np.random.random(4)
+# bounds = np.array([[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]])
+# f = asa_module.my_function
+# c = 1.0
+# q = 1.0
+
+# with tf.Session() as sess:
+#     asa = adaptiveSimulatedAnnealingModel(params_0,bounds,f,sess)
+#     sess.run(tf.global_variables_initializer())
+    
+#     # writer = tf.summary.FileWriter('.', graph=tf.get_default_graph())
+    
+
+#     feedDict = {
+#         asa._c: 1.0,
+#         asa._q: 1.0,
+#         asa._totalIters: 10.0,
+#         asa._acceptUntilReAnneal: 10.0,
+#         asa._itersUntilTempAnneal: 10.0
+#     }
+#     asa.myRun(feedDict)
 
 
-bounds = [[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]]
+
 f = asa_module.my_function
-c = 1.0
-q = 1.0
 
-asa = adaptiveSimulatedAnnealingModel(bounds,f,c,q)
 
-asa.run()
+with tf.Session() as sess:
+    asa = adaptiveSimulatedAnnealingModel(f,sess)
+    sess.run(tf.global_variables_initializer())
+    
+    # writer = tf.summary.FileWriter('.', graph=tf.get_default_graph())
+    
 
+    feedDict = {
+        asa._param_bounds: np.array([[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]])
+        asa._c: 1.0,
+        asa._q: 1.0,
+        asa._totalIters: 10.0,
+        asa._acceptUntilReAnneal: 10.0,
+        asa._itersUntilTempAnneal: 10.0,
+
+        asa.init_params : ,
+        asa.init_current_cost : ,
+        asa.init_numbAccepted : ,
+        asa.init_iters : ,
+        asa.init_best_params : ,
+        asa.init_best_cost : ,
+        asa.init_param_temps_initial : ,
+        asa.init_param_temps : ,
+        asa.init_param_temps_anneal_time : ,
+        asa.init_accept_temp_initial : ,
+        asa.init_accept_temp : ,
+        asa.init_accept_temp_anneal_time : 
+    }
+    asa.myRun(feedDict)
 
 
 
