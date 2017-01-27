@@ -169,11 +169,11 @@ def loopTest():
     w = tf.Variable(0.)
     b = tf.Variable(0.)
 
-    optimizer = tf.train.GradientDescentOptimizer(0.05)
+    optimizer = tf.train.AdamOptimizer(0.05)
 
     # Construct the while loop.                                                                                                                                    
     def cond(i):
-        return i < 20
+        return i < 10000
 
     def body(i):
         # Dequeue a single new example each iteration.                                                                                                                      
@@ -181,7 +181,7 @@ def loopTest():
 
         # Compute the loss and gradient update based on the current example.                                                                                         
         loss = (tf.add(tf.multiply(x, w), b) - y)**2
-        train_op = optimizer.minimize(loss, global_step=gs)
+        train_op = optimizer.minimize(loss)
 
         # Ensure that the update is applied before continuing.                                                                                                       
         with tf.control_dependencies([train_op]):
@@ -189,7 +189,7 @@ def loopTest():
 
     loop = tf.while_loop(cond, body, [tf.constant(0)])
 
-    data = [k*1. for k in range(20)]
+    data = [k*1. for k in range(10000)]
 
     with tf.Session() as sess:
         sess.run(tf.initialize_all_variables())

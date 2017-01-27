@@ -20,7 +20,6 @@ class adaptiveSimulatedAnnealingModel(object):
         self._sess = sess
         self._f = f
 
-
         self.init_params = tf.placeholder(tf.float32, shape=(dims,))                              # (dims,)
         self.init_param_temps_initial = tf.placeholder(tf.float32, shape=(dims,))                 # (dims,)
         self.init_accept_temp_initial = tf.placeholder(tf.float32, shape=())                      # ()
@@ -76,14 +75,15 @@ class adaptiveSimulatedAnnealingModel(object):
 
         self._totalIters = tf.placeholder(tf.float32,name='totalIters',shape=())
         self._acceptUntilReAnneal = tf.placeholder(tf.float32,name='acceptUntilReAnneal',shape=())       
-        self._itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal',shape=())     
+        self._itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal',shape=())    
+
+        self._zeroVar = tf.Variable(0.0,name='zero') 
 
         self.build_graph()
 
     def build_graph(self):
         
         self.train_step()
-        self._sess.run(tf.global_variables_initializer())
 
     #########################################################################################################################
 
@@ -124,108 +124,122 @@ class adaptiveSimulatedAnnealingModel(object):
                 new_accept_temp,\
                 new_accept_temp_anneal_time]
 
-    #########################################################################################################################
 
     def getGradient(self):
         ans = self._f(self._params)
         grad = tf.gradients(ans,self._params)
         return grad
 
-    def tryPoint(self):
-        new_params,new_cost = self.generatePoint()
-        accepted = self.acceptanceTest(new_cost)
-        return new_params,new_cost,accepted
+    #########################################################################################################################
 
     def tryUpdateBest(self,new_params,new_cost):
         predUpdateBest = tf.less(new_cost,self._best_cost,name='predUpdateBest')
-        def updateBest():
-            updated_best_cost = new_cost
-            updated_best_params = new_params
-            return [updated_best_cost,\
-                    updated_best_params]
 
-        cond = tf.cond(predUpdateBest,updateBest,lambda:[self._best_cost,\
-                                                         self._best_params],name='updateBestParams')
+        cond = tf.cond(predUpdateBest,lambda:[new_cost,\
+                                              new_params],\
+                                      lambda:[self._best_cost,\
+                                              self._best_params],name='updateBestParams')
         return cond
 
-    def tryTempAnneal(self,iters):
-        predTempAnneal = tf.equal(iters,self._itersUntilTempAnneal,name='predTempAnneal')
-        def tempAnneal_():
-            new_param_temps,new_param_temps_anneal_time,new_accept_temp,new_accept_temp_anneal_time = self.tempAnneal()
-            new_iters = tf.Variable(0.0,name='new_iters')
-            # new_iters = iters.assign(0)
-            return [new_param_temps,\
-                    new_param_temps_anneal_time,\
-                    new_accept_temp,\
-                    new_accept_temp_anneal_time,\
-                    new_iters]
+    def tryMoving(self):
+        new_params_,new_cost_ = self.generatePoint()
+        updated_best_cost,updated_best_params = self.tryUpdateBest(new_params_,new_cost_)
 
-        cond = tf.cond(predTempAnneal,tempAnneal_, lambda: [self._param_temps,\
-                                                            self._param_temps_anneal_time,\
-                                                            self._accept_temp,\
-                                                            self._accept_temp_anneal_time,\
-                                                            iters], name='tempAnnealStep')
+        iters_plus_one = self._iters+1.0
+
+        accepted = self.acceptanceTest(new_cost_)
+        numb_accepted_plus_one = self._numb_accepted+1.0
+
+        new_params,\
+        new_cost,\
+        new_iters,\
+        new_numb_accepted,\
+        new_best_cost,\
+        new_best_params = tf.cond(accepted, lambda:[new_params_,\
+                                                    new_cost_,\
+                                                    iters_plus_one,\
+                                                    numb_accepted_plus_one,\
+                                                    updated_best_cost,\
+                                                    updated_best_params],\
+                                            lambda:[self._params,\
+                                                    self._current_cost,\
+                                                    iters_plus_one,\
+                                                    self._numb_accepted,\
+                                                    self._best_cost,\
+                                                    self._best_params], name='checkAccepted')
+
+        return [new_params,new_cost,new_iters,new_numb_accepted,new_best_cost,new_best_params]
+
+    def tryTempAnneal(self,iters):
+        predTempAnneal = tf.equal(tf.mod(iters,self._itersUntilTempAnneal),self._zeroVar,name='predTempAnneal')
+
+        new_param_temps,new_param_temps_anneal_time,new_accept_temp,new_accept_temp_anneal_time = self.tempAnneal()
+
+        cond = tf.cond(predTempAnneal,lambda:[new_param_temps,\
+                                              new_param_temps_anneal_time,\
+                                              new_accept_temp,\
+                                              new_accept_temp_anneal_time],\
+                                      lambda:[self._param_temps,\
+                                              self._param_temps_anneal_time,\
+                                              self._accept_temp,\
+                                              self._accept_temp_anneal_time], name='tempAnnealStep')
         return cond
 
     def tryReAnneal(self,numb_accepted):
-        predReAnneal = tf.equal(numb_accepted,self._acceptUntilReAnneal,name='predReAnneal')
-        def reAnneal_():
-            new_param_temps,new_param_temps_anneal_time,new_accept_temp_initial,new_accept_temp,new_accept_temp_anneal_time = self.reAnneal()
-            new_numb_accepted = tf.Variable(0.0,name='new_numb_accepted')
-            # new_numb_accepted = numb_accepted.assign(0)
-            return [new_param_temps,\
-                    new_param_temps_anneal_time,\
-                    new_accept_temp_initial,\
-                    new_accept_temp,\
-                    new_accept_temp_anneal_time,\
-                    new_numb_accepted]
-        cond = tf.cond(predReAnneal,reAnneal_, lambda: [self._param_temps,\
-                                                        self._param_temps_anneal_time,\
-                                                        self._accept_temp_initial,\
-                                                        self._accept_temp,\
-                                                        self._accept_temp_anneal_time,\
-                                                        numb_accepted], name='reAnnealStep')
+        predReAnneal = tf.equal(tf.mod(numb_accepted,self._acceptUntilReAnneal),self._zeroVar,name='predReAnneal')
+
+        new_param_temps,new_param_temps_anneal_time,new_accept_temp_initial,new_accept_temp,new_accept_temp_anneal_time = self.reAnneal()
+
+        cond = tf.cond(predReAnneal,lambda:[new_param_temps,\
+                                            new_param_temps_anneal_time,\
+                                            new_accept_temp_initial,\
+                                            new_accept_temp,\
+                                            new_accept_temp_anneal_time],\
+                                    lambda:[self._param_temps,\
+                                            self._param_temps_anneal_time,\
+                                            self._accept_temp_initial,\
+                                            self._accept_temp,\
+                                            self._accept_temp_anneal_time], name='reAnnealStep')
 
         return cond
+
+
 
     #########################################################################################################################
 
     def train_step(self):
 
-        new_params,new_cost,accepted = self.tryPoint()
-        new_iters = self._iters+1.0
+        new_params,\
+        new_cost,\
+        new_iters,\
+        new_numb_accepted,\
+        new_best_cost,\
+        new_best_params = self.tryMoving()
 
-        def weAccepted(new_params_,newCost_):
-            numb_accepted = self._numb_accepted+1.0
-            updated_best_cost,updated_best_params = self.tryUpdateBest(new_params_,newCost_)
-            return [numb_accepted,\
-                    updated_best_cost,\
-                    updated_best_params]
+        #______________________________________________________________________________#
 
-        numb_accepted,\
-        updated_best_cost,\
-        updated_best_params = tf.cond(accepted,lambda: weAccepted(new_params,new_cost),lambda:[self._numb_accepted,\
-                                                                                            self._best_cost,\
-                                                                                            self._best_params], name='checkAccepted')
         new_param_temps,\
         new_param_temps_anneal_time,\
         new_accept_temp,\
-        new_accept_temp_anneal_time,\
-        new_iters2 = self.tryTempAnneal(new_iters)
+        new_accept_temp_anneal_time = self.tryTempAnneal(new_iters)
+
+        #______________________________________________________________________________#
 
         new_param_temps,\
         new_param_temps_anneal_time,\
         new_accept_temp_initial,\
         new_accept_temp,\
-        new_accept_temp_anneal_time,\
-        new_numb_accepted = self.tryReAnneal(numb_accepted)
+        new_accept_temp_anneal_time = self.tryReAnneal(new_numb_accepted)
+
+        #______________________________________________________________________________#
+
 
         allVars =  [new_params,\
                     new_cost,\
                     new_numb_accepted,\
-                    new_iters2,\
-                    updated_best_params,\
-                    updated_best_cost,\
+                    new_iters,\
+                    new_best_params,\
+                    new_best_cost,\
                     self._param_temps_initial,\
                     new_param_temps,\
                     new_param_temps_anneal_time,\
@@ -239,22 +253,23 @@ class adaptiveSimulatedAnnealingModel(object):
 
 
     def myRun(self,feedDict):
-        return
         self._sess.run(tf.global_variables_initializer(),feed_dict=feedDict)
         self._sess.run(self._queue_init,feed_dict=feedDict)
-        self._sess.run(self.train_step(),feed_dict=feedDict)
-        return
+        print(self._sess.run([self._params,\
+                      self._current_cost,\
+                      self._numb_accepted,\
+                      self._iters,\
+                      self._best_params,\
+                      self._best_cost,\
+                      self._param_temps_initial,\
+                      self._param_temps,\
+                      self._param_temps_anneal_time,\
+                      self._accept_temp_initial,\
+                      self._accept_temp,\
+                      self._accept_temp_anneal_time]))
+        
 
-        # i = 0
-        # sess.run(self._queue_init,feed_dict=feedDict)
-        # while(i < 1):
-        #     sess.run(self.train_step(),feed_dict={asa._param_bounds: np.array([[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]]),\
-        #                                         asa._c: 1.0,\
-        #                                         asa._q: 1.0,\
-        #                                         asa._totalIters: 10.0,\
-        #                                         asa._acceptUntilReAnneal: 10.0,\
-        #                                         asa._itersUntilTempAnneal: 10.0})
-        #     i += 1
+
 
 
 f = asa_module.my_function
@@ -277,7 +292,6 @@ with tf.Session() as sess:
         asa.init_param_temps_initial: np.zeros((4,)),
         asa.init_accept_temp_initial: 0.0
     }
-    
 
     asa.myRun(feedDict)
 
