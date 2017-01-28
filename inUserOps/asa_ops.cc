@@ -1,7 +1,9 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
+// cd ~/tensorflow/tensorflow/core/user_ops
 // bazel build -c opt //tensorflow/core/user_ops:asa.so
+
 using namespace tensorflow;
 
 
@@ -19,6 +21,8 @@ param_temps: current parameter temperatures
 potential_new_point: new point that ASA could go to
         )doc");
 
+/* ------------------------------------------------------------------------------ */
+
 REGISTER_OP("AcceptTest")
     .Input("accept_temp: float")
     .Input("new_cost: float")
@@ -33,17 +37,49 @@ current_cost: the current cost for potential_new_point
 accepted: true if this point was accepted
         )doc");
 
+/* ------------------------------------------------------------------------------ */
+
+REGISTER_OP("TempAnneal")
+    .Input("c: float")
+    .Input("q: float")
+    .Input("param_temps_initial: float")
+    .Input("param_temps_anneal_time: float")
+    .Input("accept_temp_initial: float")
+    .Input("accept_temp_anneal_time: float")
+    .Output("new_param_temps: float")  
+    .Output("new_param_temps_anneal_time: float")  
+    .Output("new_accept_temp: float")  
+    .Output("new_accept_temp_anneal_time: float")  
+    .Doc(R"doc(
+Updates the temperature annealing parameters
+
+c: a constant
+q: quenching factor
+param_temps_initial: the initial parameter temperatures
+param_temps_anneal_time: original val
+accept_temp_initial: the initial acceptance temperature
+accept_temp_anneal_time: original val
+new_param_temps: the updated parameter
+new_param_temps_anneal_time: the updated parameter
+new_accept_temp: the updated parameter
+new_accept_temp_anneal_time: the updated parameter
+        )doc");
+
+/* ------------------------------------------------------------------------------ */
+
 REGISTER_OP("ReAnneal")
     .Input("c: float")
     .Input("best_cost: float")
     .Input("current_cost: float")
     .Input("param_temps_initial: float")
-    .Input("param_temps: Ref(float)")
-    .Input("param_temps_anneal_time: Ref(float)")
-    .Input("accept_temp_initial: Ref(float)")
-    .Input("accept_temp: Ref(float)")
-    .Input("accept_temp_anneal_time: Ref(float)")
+    .Input("param_temps: float")
     .Input("gradients: float")
+    .Output("new_param_temps: float")
+    .Output("new_param_temps_anneal_time: float")
+    .Output("new_accept_temp_initial: float")
+    .Output("new_accept_temp: float")
+    .Output("new_accept_temp_anneal_time: float")
+
     .Doc(R"doc(
 Re-anneals the annealing parameters
 
@@ -52,34 +88,15 @@ best_cost: cost for best_params
 current_cost: the current cost
 param_temps_initial: the initial parameter temperatures
 param_temps: current parameter temperatures
-param_temps_anneal_time: current parameter annealing time
-accept_temp_initial: the initial acceptance temperature
-accept_temp: current acceptance temperature
-accept_temp_anneal_time: current acceptance annealing time
 gradients: gradients
+new_param_temps: updated parameter
+new_param_temps_anneal_time: updated parameter
+new_accept_temp_initial: updated parameter
+new_accept_temp: updated parameter
+new_accept_temp_anneal_time: updated parameter
         )doc");
 
-REGISTER_OP("TempAnneal")
-    .Input("c: float")
-    .Input("q: float")
-    .Input("param_temps_initial: float")
-    .Input("param_temps: Ref(float)")
-    .Input("param_temps_anneal_time: Ref(float)")
-    .Input("accept_temp_initial: float")
-    .Input("accept_temp: Ref(float)")
-    .Input("accept_temp_anneal_time: Ref(float)")    
-    .Doc(R"doc(
-Updates the temperature annealing parameters
-
-c: a constant
-q: quenching factor
-param_temps_initial: the initial parameter temperatures
-param_temps: current parameter temperatures
-param_temps_anneal_time: current parameter annealing time
-accept_temp_initial: the initial acceptance temperature
-accept_temp: current acceptance temperature
-accept_temp_anneal_time: current acceptance annealing time
-        )doc");
+/* ------------------------------------------------------------------------------ */
 
 REGISTER_OP("MyFunction")
     .Input("in: float")

@@ -2,7 +2,6 @@
 
 #include <cmath>
 
-// g++ -std=c++11 -undefined dynamic_lookup -shared asa_kernels.cc asa_ops.cc -o $TENSORFLOW/core/user_ops/asa.so -fPIC -I $TF_INC -O2
 
 using namespace tensorflow;
 
@@ -93,6 +92,77 @@ REGISTER_KERNEL_BUILDER(Name("AcceptTest").Device(DEVICE_CPU), AcceptTestOp);
 
 /* ------------------------------------------------------------------------------ */
 
+class TempAnnealOp : public OpKernel {
+    public:
+    explicit TempAnnealOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
+
+    void Compute(OpKernelContext* ctx) override {
+
+
+        const Tensor & c = ctx->input(0);
+        auto Tc = c.scalar<float>()();
+
+        /* -------------------------------------------------------------------- */
+
+        const Tensor & q = ctx->input(1);
+        auto Tq = q.scalar<float>()();
+
+        /* -------------------------------------------------------------------- */
+
+        const Tensor & param_temps_initial = ctx->input(2);
+        auto Tparam_temps_initial = param_temps_initial.flat<float>();
+        unsigned dims = Tparam_temps_initial.size();
+
+        /* -------------------------------------------------------------------- */
+
+        Tensor param_temps_anneal_time = ctx->input(3);
+        auto Tparam_temps_anneal_time = param_temps_anneal_time.flat<float>();
+
+        /* -------------------------------------------------------------------- */
+
+        const Tensor & accept_temp_initial = ctx->input(4);
+        auto Taccept_temp_initial = accept_temp_initial.scalar<float>()();
+
+        /* -------------------------------------------------------------------- */
+
+        Tensor accept_temp_anneal_time = ctx->input(5); 
+        auto Taccept_temp_anneal_time = accept_temp_anneal_time.flat<float>();
+        
+
+        /* -------------------------------------------------------------------- */
+        Tensor new_param_temps(DT_FLOAT,TensorShape({dims}));
+        auto Tnew_param_temps = new_param_temps.flat<float>();
+
+        Tensor new_param_temps_anneal_time(DT_FLOAT,TensorShape({dims}));
+        auto Tnew_param_temps_anneal_time = new_param_temps_anneal_time.flat<float>();
+
+        Tensor new_accept_temp(DT_FLOAT,TensorShape({}));
+        auto Tnew_accept_temp = new_accept_temp.flat<float>();
+
+        Tensor new_accept_temp_anneal_time(DT_FLOAT,TensorShape({}));
+        auto Tnew_accept_temp_anneal_time = new_accept_temp_anneal_time.flat<float>();
+        /* -------------------------------------------------------------------- */
+
+
+        for(int i=0; i<dims; ++i) {
+            Tnew_param_temps_anneal_time(i) = Tparam_temps_anneal_time(i)+1;
+            Tnew_param_temps(i) = Tparam_temps_initial(i)*exp(-Tc*pow(Tnew_param_temps_anneal_time(i),Tq/dims));
+        }
+
+        Tnew_accept_temp_anneal_time(0) = Taccept_temp_anneal_time(0)+1;
+        Tnew_accept_temp(0) = Taccept_temp_initial*exp(-Tc*pow(Tnew_accept_temp_anneal_time(0),Tq/dims));
+
+        ctx->set_output(0, new_param_temps);
+        ctx->set_output(1, new_param_temps_anneal_time);
+        ctx->set_output(2, new_accept_temp);
+        ctx->set_output(3, new_accept_temp_anneal_time);
+    }
+};
+
+REGISTER_KERNEL_BUILDER(Name("TempAnneal").Device(DEVICE_CPU), TempAnnealOp);
+
+/* ------------------------------------------------------------------------------ */
+
 class ReAnnealOp : public OpKernel {
 public:
     explicit ReAnnealOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
@@ -116,7 +186,8 @@ public:
 
         Tensor param_temps_initial = ctx->input(3);
         auto Tparam_temps_initial = param_temps_initial.flat<float>();
-        
+        unsigned dims = Tparam_temps_initial.size();
+
         /* ----------------------------------------------------------------- */
 
         Tensor param_temps = ctx->input(4);
@@ -124,30 +195,28 @@ public:
         
         /* ----------------------------------------------------------------- */
 
-        Tensor param_temps_anneal_time = ctx->input(5);
-        auto Tparam_temps_anneal_time = param_temps_anneal_time.flat<float>();
-
-        /* ----------------------------------------------------------------- */
-
-        Tensor accept_temp_initial =  ctx->input(6);
-        auto Taccept_temp_initial = accept_temp_initial.flat<float>();
-        
-        /* ----------------------------------------------------------------- */
-        Tensor accept_temp = ctx->input(7); 
-        auto Taccept_temp = accept_temp.flat<float>();
-        
-        /* ----------------------------------------------------------------- */
-        Tensor accept_temp_anneal_time = ctx->input(8); 
-        auto Taccept_temp_anneal_time = accept_temp_anneal_time.flat<float>();
-        
-        /* ----------------------------------------------------------------- */
-
-        const Tensor & gradients = ctx->input(9);
+        const Tensor & gradients = ctx->input(5);
         auto Tgradients = gradients.flat<float>();
 
         /* ----------------------------------------------------------------- */
+
+        Tensor new_param_temps(DT_FLOAT,TensorShape({dims}));
+        auto Tnew_param_temps = new_param_temps.flat<float>();
+
+        Tensor new_param_temps_anneal_time(DT_FLOAT,TensorShape({dims}));
+        auto Tnew_param_temps_anneal_time = new_param_temps_anneal_time.flat<float>();
+
+        Tensor new_accept_temp_initial(DT_FLOAT,TensorShape({}));
+        auto Tnew_accept_temp_initial = new_accept_temp_initial.flat<float>();
+
+        Tensor new_accept_temp(DT_FLOAT,TensorShape({}));
+        auto Tnew_accept_temp = new_accept_temp.flat<float>();
+
+        Tensor new_accept_temp_anneal_time(DT_FLOAT,TensorShape({}));
+        auto Tnew_accept_temp_anneal_time = new_accept_temp_anneal_time.flat<float>();
+
+        /* ----------------------------------------------------------------- */
         
-        unsigned dims = Tparam_temps_initial.size();
 
         float grad_max = -1;
         for(int i=0; i<dims; ++i) {
@@ -159,80 +228,29 @@ public:
         for(int i=0; i<dims; ++i) {
             auto grad_i = Tgradients(i);
             if(grad_i != 0) {
-                Tparam_temps(i) *= std::abs(grad_max/grad_i);
+                Tnew_param_temps(i) = Tparam_temps(i)*std::abs(grad_max/grad_i);
             }
-            Tparam_temps_anneal_time(i) = pow(-1.0/Tc*std::log(Tparam_temps(i)/Tparam_temps_initial(i)),dims);
+            if(Tnew_param_temps(i) < Tparam_temps_initial(i)) {
+                Tnew_param_temps_anneal_time(i) = pow(-1.0/Tc*std::log(Tnew_param_temps(i)/Tparam_temps_initial(i)),dims);
+            }
+            else {
+                Tnew_param_temps_anneal_time(i) = pow(1.0/Tc*std::log(Tnew_param_temps(i)/Tparam_temps_initial(i)),dims);
+            }
         }
-        Taccept_temp(0) = Tbest_cost;
-        Taccept_temp_initial(0) = Tcurrent_cost;
-        Taccept_temp_anneal_time(0) = pow(-1.0/Tc*std::log(Taccept_temp(0)/Taccept_temp_initial(0)), dims);
+        Tnew_accept_temp(0) = Tbest_cost;
+        Tnew_accept_temp_initial(0) = Tcurrent_cost;
+        Tnew_accept_temp_anneal_time(0) = pow(-1.0/Tc*std::log(Tnew_accept_temp(0)/Tnew_accept_temp_initial(0)), dims);
+    
+        ctx->set_output(0, new_param_temps);
+        ctx->set_output(1, new_param_temps_anneal_time);
+        ctx->set_output(2, new_accept_temp_initial);
+        ctx->set_output(3, new_accept_temp);
+        ctx->set_output(4, new_accept_temp_anneal_time);
     }
 };
 
 REGISTER_KERNEL_BUILDER(Name("ReAnneal").Device(DEVICE_CPU), ReAnnealOp);
 
-/* ------------------------------------------------------------------------------ */
-
-class TempAnnealOp : public OpKernel {
-    public:
-    explicit TempAnnealOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
-
-    void Compute(OpKernelContext* ctx) override {
-
-
-        const Tensor & c = ctx->input(0);
-        auto Tc = c.scalar<float>()();
-
-        /* -------------------------------------------------------------------- */
-
-        const Tensor & q = ctx->input(1);
-        auto Tq = q.scalar<float>()();
-
-        /* -------------------------------------------------------------------- */
-
-        const Tensor & param_temps_initial = ctx->input(2);
-        auto Tparam_temps_initial = param_temps_initial.flat<float>();
-
-        /* -------------------------------------------------------------------- */
-
-        Tensor param_temps = ctx->input(3);
-        auto Tparam_temps = param_temps.flat<float>();
-
-        /* -------------------------------------------------------------------- */
-
-        Tensor param_temps_anneal_time = ctx->input(4);
-        auto Tparam_temps_anneal_time = param_temps_anneal_time.flat<float>();
-
-        /* -------------------------------------------------------------------- */
-
-        const Tensor & accept_temp_initial = ctx->input(5);
-        auto Taccept_temp_initial = accept_temp_initial.scalar<float>()();
-
-        /* -------------------------------------------------------------------- */
-
-        Tensor accept_temp = ctx->input(6);
-        auto Taccept_temp = accept_temp.flat<float>();
-
-        /* -------------------------------------------------------------------- */
-
-        Tensor accept_temp_anneal_time = ctx->input(7);
-        auto Taccept_temp_anneal_time = accept_temp_anneal_time.flat<float>();
-
-        /* -------------------------------------------------------------------- */
-
-
-        unsigned dims = Tparam_temps_initial.size();
-        for(int i=0; i<dims; ++i) {
-            Tparam_temps_anneal_time(i) += 1;
-            Tparam_temps(i) = Tparam_temps_initial(i)*exp(-Tc*pow(Tparam_temps_anneal_time(i),Tq/dims));
-        }
-
-        Taccept_temp_anneal_time(0) += 1;
-        Taccept_temp(0) = Taccept_temp_initial*exp(-Tc*pow(Taccept_temp_anneal_time(0),Tq/dims));
-    }
-};
-
-REGISTER_KERNEL_BUILDER(Name("TempAnneal").Device(DEVICE_CPU), TempAnnealOp);
 
 /* ------------------------------------------------------------------------------ */
 
