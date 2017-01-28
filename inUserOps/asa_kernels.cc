@@ -1,4 +1,6 @@
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/platform/logging.h"
+#include "tensorflow/core/lib/strings/str_util.h"
 
 #include <cmath>
 
@@ -217,6 +219,12 @@ public:
 
         /* ----------------------------------------------------------------- */
         
+        // string msg;
+        // strings::StrAppend(&msg,"\n\nGradient: ");
+        // for(int i=0; i<dims; ++i) {
+        //     strings::StrAppend(&msg, Tgradients(i)," ");
+        // }
+
 
         float grad_max = -1;
         for(int i=0; i<dims; ++i) {
@@ -225,18 +233,35 @@ public:
             }
         }
 
+
         for(int i=0; i<dims; ++i) {
-            auto grad_i = Tgradients(i);
+            float grad_i = Tgradients(i);
             if(grad_i != 0) {
+                // strings::StrAppend(&msg, "\ni: ",i);
+                // strings::StrAppend(&msg, "\ngrad_max: ",grad_max);
+                // strings::StrAppend(&msg, "\ngrad_i: ",grad_i);
+                // strings::StrAppend(&msg, "\nstd::abs(grad_max/grad_i): ",std::abs(grad_max/grad_i));
+                // strings::StrAppend(&msg, "\nTparam_temps(i): ",Tparam_temps(i));
+                // strings::StrAppend(&msg, "\nTparam_temps(i)*std::abs(grad_max/grad_i): ",Tparam_temps(i)*std::abs(grad_max/grad_i));
+
                 Tnew_param_temps(i) = Tparam_temps(i)*std::abs(grad_max/grad_i);
             }
             if(Tnew_param_temps(i) < Tparam_temps_initial(i)) {
+                // strings::StrAppend(&msg, "\ndims: ",dims);
+                // strings::StrAppend(&msg, "\nTnew_param_temps(i): ",Tnew_param_temps(i));
+                // strings::StrAppend(&msg, "\nTparam_temps_initial(i): ",Tparam_temps_initial(i));
+                // strings::StrAppend(&msg, "\nTnew_param_temps(i)/Tparam_temps_initial(i): ",Tnew_param_temps(i)/Tparam_temps_initial(i));
+                // strings::StrAppend(&msg, "\nTnew_param_temps(i)/Tparam_temps_initial(i): ",Tnew_param_temps(i)/Tparam_temps_initial(i));
+                // strings::StrAppend(&msg, "\nTnew_param_temps(i)/Tparam_temps_initial(i): ",Tnew_param_temps(i)/Tparam_temps_initial(i));
+                // strings::StrAppend(&msg, "\nstd::log(Tnew_param_temps(i)/Tparam_temps_initial(i)): ",std::log(Tnew_param_temps(i)/Tparam_temps_initial(i)));
                 Tnew_param_temps_anneal_time(i) = pow(-1.0/Tc*std::log(Tnew_param_temps(i)/Tparam_temps_initial(i)),dims);
             }
-            else {
-                Tnew_param_temps_anneal_time(i) = pow(1.0/Tc*std::log(Tnew_param_temps(i)/Tparam_temps_initial(i)),dims);
-            }
         }
+
+        // LOG(INFO) << msg;
+
+
+
         Tnew_accept_temp(0) = Tbest_cost;
         Tnew_accept_temp_initial(0) = Tcurrent_cost;
         Tnew_accept_temp_anneal_time(0) = pow(-1.0/Tc*std::log(Tnew_accept_temp(0)/Tnew_accept_temp_initial(0)), dims);
