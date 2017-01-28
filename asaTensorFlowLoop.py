@@ -36,24 +36,50 @@ class adaptiveSimulatedAnnealingModel(object):
             self.init_accept_temp = tf.Variable(self.init_accept_temp_initial.initialized_value())    # () 
             self.init_accept_temp_anneal_time = tf.Variable(0.0,dtype=tf.float32)                     # ()
 
-            initVals = [self.init_params,\
-                        self.init_current_cost,\
-                        self.init_numb_accepted,\
-                        self.init_iters,\
-                        self.init_best_params,\
-                        self.init_best_cost,\
-                        self.init_param_temps_initial,\
-                        self.init_param_temps,\
-                        self.init_param_temps_anneal_time,\
-                        self.init_accept_temp_initial,\
-                        self.init_accept_temp,\
-                        self.init_accept_temp_anneal_time]
+        with tf.variable_scope('placeholderVars'):
+        
+            self.init_param_bounds = tf.placeholder(tf.float32,name='bounds',shape=(2,dims))
+            self._dims = dims
+            self.init_c = tf.placeholder(tf.float32,name='c',shape=())
+            self.init_q = tf.placeholder(tf.float32,name='q',shape=())
 
-            initShapes = [x.get_shape() for x in initVals]
 
-        self._queue = tf.FIFOQueue(12,[tf.float32 for _ in initVals],shapes=initShapes)
+            self.init_totalIters = tf.placeholder(tf.float32,name='totalIters',shape=())
+            self.init_acceptUntilReAnneal = tf.placeholder(tf.float32,name='acceptUntilReAnneal',shape=())       
+            self.init_itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal',shape=())    
+
+            self._zeroVar = tf.Variable(0.0,name='zero') 
+
+        initVals = [self.init_params,\
+                    self.init_current_cost,\
+                    self.init_numb_accepted,\
+                    self.init_iters,\
+                    self.init_best_params,\
+                    self.init_best_cost,\
+                    self.init_param_temps_initial,\
+                    self.init_param_temps,\
+                    self.init_param_temps_anneal_time,\
+                    self.init_accept_temp_initial,\
+                    self.init_accept_temp,\
+                    self.init_accept_temp_anneal_time,\
+                    \
+                    self.init_param_bounds,\
+                    self.init_c,\
+                    self.init_q,\
+                    self.init_totalIters,\
+                    self.init_acceptUntilReAnneal,\
+                    self.init_itersUntilTempAnneal]
+
+        initShapes = [x.get_shape() for x in initVals]
+
+        self._queue = tf.FIFOQueue(len(initVals),[tf.float32 for _ in initVals],shapes=initShapes)
         self._queue_init = self._queue.enqueue(initVals)
 
+        
+        self.dequeue_vals()
+        self.build_graph()
+
+    def dequeue_vals(self):
         with tf.variable_scope('queueVars'):
             self._params,\
             self._current_cost,\
@@ -66,23 +92,14 @@ class adaptiveSimulatedAnnealingModel(object):
             self._param_temps_anneal_time,\
             self._accept_temp_initial,\
             self._accept_temp,\
-            self._accept_temp_anneal_time = self._queue.dequeue()
-            
-        with tf.variable_scope('placeholderVars'):
-        
-            self._param_bounds = tf.placeholder(tf.float32,name='bounds',shape=(2,dims))
-            self._dims = dims
-            self._c = tf.placeholder(tf.float32,name='c',shape=())
-            self._q = tf.placeholder(tf.float32,name='q',shape=())
-
-
-            self._totalIters = tf.placeholder(tf.float32,name='totalIters',shape=())
-            self._acceptUntilReAnneal = tf.placeholder(tf.float32,name='acceptUntilReAnneal',shape=())       
-            self._itersUntilTempAnneal = tf.placeholder(tf.float32,name='itersUntilTempAnneal',shape=())    
-
-            self._zeroVar = tf.Variable(0.0,name='zero') 
-
-        self.build_graph()
+            self._accept_temp_anneal_time,\
+            \
+            self._param_bounds,\
+            self._c,\
+            self._q,\
+            self._totalIters,\
+            self._acceptUntilReAnneal,\
+            self._itersUntilTempAnneal = self._queue.dequeue()
 
     def build_graph(self):
         
@@ -221,6 +238,8 @@ class adaptiveSimulatedAnnealingModel(object):
 
     def train_step(self):
 
+
+
         new_params,\
         new_cost,\
         new_iters,\
@@ -258,7 +277,14 @@ class adaptiveSimulatedAnnealingModel(object):
                     new_param_temps_anneal_time,\
                     new_accept_temp_initial,\
                     new_accept_temp,\
-                    new_accept_temp_anneal_time]
+                    new_accept_temp_anneal_time,\
+                    \
+                    self._param_bounds,\
+                    self._c,\
+                    self._q,\
+                    self._totalIters,\
+                    self._acceptUntilReAnneal,\
+                    self._itersUntilTempAnneal]
 
         addBackOn = self._queue.enqueue(allVars)
 
@@ -266,12 +292,25 @@ class adaptiveSimulatedAnnealingModel(object):
 
 
     def myRun(self,feedDict):
+
+        def cond(i):
+            return i < 100000
+
+        def body(i):
+            self.dequeue_vals()
+            step = self.train_step()
+            with tf.control_dependencies([step]):
+                return i + 1
+
+        loop = tf.while_loop(cond,body,[tf.constant(0)])
+
         self._sess.run(tf.global_variables_initializer(),feed_dict=feedDict)
         self._sess.run(self._queue_init,feed_dict=feedDict)
 
-        for i in range(5):
-            self._sess.run(self.train_step(),feed_dict=feedDict)
 
+        self._sess.run(loop)
+        self.seeResult(str(self._sess.run(self._queue.dequeue())))
+        return
         self.seeResult(str(self._sess.run([self._params,\
                       self._current_cost,\
                       self._numb_accepted,\
@@ -327,12 +366,12 @@ with tf.Session() as sess:
     # writer = tf.summary.FileWriter('.', graph=sess.graph)
     
     feedDict = {
-        asa._param_bounds: np.array([[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]]),
-        asa._c: 10.0,
-        asa._q: 1.0,
-        asa._totalIters: 100.0,
-        asa._acceptUntilReAnneal: 10.0,
-        asa._itersUntilTempAnneal: 10.0,
+        asa.init_param_bounds: np.array([[-10.0,-10.0,-10.0,-10.0],[10.0,10.0,10.0,10.0]]),
+        asa.init_c: 10.0,
+        asa.init_q: 1.0,
+        asa.init_totalIters: 100.0,
+        asa.init_acceptUntilReAnneal: 10.0,
+        asa.init_itersUntilTempAnneal: 10.0,
 
         asa.init_params : np.random.normal(-3,1,4),
         asa.init_param_temps_initial: np.ones((4,))

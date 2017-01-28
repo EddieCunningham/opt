@@ -124,7 +124,7 @@ def loopTest():
         return i < 10000
 
     def body(i):
-        # Dequeue a single new example each iteration.                                                                                                                      
+        # Dequeue a single new example each iteration.                                                                                          
         x, y = q_data.dequeue()
 
         # Compute the loss and gradient update based on the current example.
