@@ -149,7 +149,7 @@ def loopTest():
     data = [k*1. for k in range(10000)]
 
     with tf.Session() as sess:
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
 
         for _ in range(1):
             # NOTE: Constructing the enqueue op ahead of time avoids adding                                                                                            
@@ -169,24 +169,71 @@ def myConvTest():
 
     my_conv_module = tf.load_op_library('../tensorflow/bazel-bin/tensorflow/core/user_ops/my_conv.so')
 
-    @ops.RegisterGradient("MyFunction")
-    def _my_function_grad(op, grad):
-        x = op.input[0]
-        w_out = op.input[1]
-        w_in = op.input[2]
-        b = op.input[3]
-        d = op.input[4]
-        h = op.input[5]
+    @ops.RegisterGradient("MyConv")
+    def _my_conv_grad(op, grad):
+        x = op.inputs[0]
+        w_out = op.inputs[1]
+        w_in = op.inputs[2]
+        b = op.inputs[3]
+        w_c = op.inputs[4]
 
-        # need to compute dy/dw_ok, dy/dw_ik, dy/db_k
 
+        alpha = tf.reduce_prod(w_out,keep_dims=True)
+        beta = tf.reduce_prod(w_in,1,keep_dims=True)
+        gamma = x+tf.reshape(tf.reduce_sum(tf.div(b,w_in),axis=0,keep_dims=True),x.get_shape())
+        delta = tf.matmul(w_in,x)+b
+
+        ones = tf.Variable(np.ones(x.get_shape()),dtype=tf.float32)
+        gamma_pow_2hp1 = tf.pow(gamma,(2*h+1)*ones)
+        gamma_pow_2h = tf.pow(gamma,2*h*ones)
+
+        reluCond = tf.greater(delta,0)
+        relu_delta_w_ok = tf.nn.relu(delta)
+        relu_delta_w_ik = tf.cond(reluCond,tf.multiply(x,w_out),tf.zeros([x.get_shape()[0],w_out.get_shape()[1]]))
+        relu_delta_w_ik = tf.cond(reluCond,w_out,tf.zeros(w_out.get_shape()))
+
+
+
+
+
+
+
+
+
+        assert 0
         return [ans]
 
-    pass
+    x = tf.Variable([[1],[3]],dtype=tf.float32)
+    w_in = tf.Variable([[1,2],[3,0.6],[3,6]],dtype=tf.float32)
+    w_out = tf.Variable([[1.5,1.5,1.2]],dtype=tf.float32)
+    b = tf.Variable([[1.3],[1.2],[7]],dtype=tf.float32)
+    w_c = tf.Variable([0.001],dtype=tf.float32)
 
 
+    y = my_conv_module.my_conv(x,w_out,w_in,b,w_c)
 
-tensorflowExample()
+    # tf.gradients(y,w_in)
+
+    y_1 = tf.matmul(w_in,x)
+    y_2 = y_1+b
+    y_3 = tf.nn.relu(y_2)
+    y_4 = tf.matmul(w_out,y_3)
+
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        print('\n\ny: '+str(sess.run(y)))
+        print('\n\n\nx: '+str(sess.run([x])))
+        print('\nw_in: '+str(sess.run([w_in])))
+        print('\nw_out: '+str(sess.run([w_out])))
+        print('\nb: '+str(sess.run([b])))
+        print('\ny_1: '+str(sess.run([y_1])))
+        print('\ny_2: '+str(sess.run([y_2])))
+        print('\ny_3: '+str(sess.run([y_3])))
+        print('\ny_4: '+str(sess.run([y_4])))
+
+myConvTest()
 
 
 

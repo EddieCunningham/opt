@@ -11,8 +11,7 @@ REGISTER_OP("MyConv")
     .Input("w_out: float")
     .Input("w_in: float")
     .Input("b: float")
-    .Input("d: float")
-    .Input("h: float")
+    .Input("w_c: float")
     .Output("out: float")
     .Doc(R"doc(
 A convolution of a single layer network with relu units.
@@ -21,6 +20,5 @@ x: d*1 input vector
 w_out: h*1 weight vector
 w_in: h*d weight matrix
 b: h*1 bias vector
-d: size of input
-h: size of hidden layer
+w_c: weight on the convolution output
         )doc");

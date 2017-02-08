@@ -18,23 +18,45 @@ class myConvOp : public OpKernel {
 
     void Compute(OpKernelContext* ctx) override {
 
+        string msg;
+
         const Tensor & x_tensor = ctx->input(0);
         auto x = x_tensor.flat<float>();
+        strings::StrAppend(&msg,"\n\nx.size(): ",x.size()," | ");
+        for(int i=0; i<x.size(); ++i) {
+            strings::StrAppend(&msg," ",x(i)," ");
+        }
+
 
         const Tensor & w_out_tensor = ctx->input(1);
         auto w_out = w_out_tensor.flat<float>();
+        strings::StrAppend(&msg,"\n\nw_out.size(): ",w_out.size()," | ");
+        for(int i=0; i<w_out.size(); ++i) {
+            strings::StrAppend(&msg," ",w_out(i)," ");
+        }
+
 
         const Tensor & w_in_tensor = ctx->input(2);
         auto w_in = w_in_tensor.flat<float>();
+        strings::StrAppend(&msg,"\n\nw_in.size(): ",w_in.size()," | ");
+        for(int i=0; i<w_in.size(); ++i) {
+            strings::StrAppend(&msg," ",w_in(i)," ");
+        }
+
 
         const Tensor & b_tensor = ctx->input(3);
         auto b = b_tensor.flat<float>();
+        strings::StrAppend(&msg,"\n\nb.size(): ",b.size()," | ");
+        for(int i=0; i<b.size(); ++i) {
+            strings::StrAppend(&msg," ",b(i)," ");
+        }
 
-        const Tensor & num_inputs = ctx->input(4);
-        unsigned d = (int)num_inputs.scalar<float>()();
+        const Tensor & w_c_tensor = ctx->input(4);
+        float w_c = w_c_tensor.scalar<float>()();
+        strings::StrAppend(&msg,"\n\nw_c: ",w_c);
 
-        const Tensor & num_hidden = ctx->input(5);
-        unsigned h = (int)num_hidden.scalar<float>()();
+        const unsigned d = x.size();
+        const unsigned h = w_out.size();
 
         float w_ok_prod = 1;
 
@@ -59,38 +81,46 @@ class myConvOp : public OpKernel {
                 b_k__w_ik_sum[i] += b_k/w_ik;
 
                 float x_i = x(i);
-                relu += w_ik+x_i;
+                relu += w_ik*x_i;
             }
             if(relu > 0) {
                 first_part += w_ok*relu;
             }
         }
 
-        // float second_part = 0;
-        // for(int i=0; i<d; ++i) {
-
-        //     float to_raise = x(i)+b_k__w_ik_sum[i];
-        //     float raised = 0;
-        //     for(int l=0; l<2*h+1; ++l) {
-        //         raised *= to_raise/((float)l+1);
-        //     }
-
-        //     second_part += w_ok_prod*w_ik_prod[i]*raised;
-        // }
-
         float second_part = 0;
         for(int i=0; i<d; ++i) {
             second_part += w_ik_prod[i]*pow(x(i)+b_k__w_ik_sum[i],2*h+1);
         }
-        second_part *= w_ok_prod*factorial(2*h+1);
+        second_part *= w_ok_prod*w_c;
+
+
+        strings::StrAppend(&msg,"\n\nw_ik_prod.size(): ",d," | ");
+        for(int i=0; i<d; ++i) {
+            strings::StrAppend(&msg," ",w_ik_prod[i]," ");
+        }
+
+        strings::StrAppend(&msg,"\n\nb_k__w_ik_sum.size(): ",d," | ");
+        for(int i=0; i<d; ++i) {
+            strings::StrAppend(&msg," ",b_k__w_ik_sum[i]," ");
+        }
+
+        strings::StrAppend(&msg,"\n\nw_ok_prod: ",w_ok_prod);
+
+        strings::StrAppend(&msg,"\n\nsecond_part: ",second_part);
+
+
 
 
         Tensor ans_tensor(DT_FLOAT,TensorShape({}));
         auto ans = ans_tensor.flat<float>();
-        ans(0) = first_part+second_part;
+        ans(0) = first_part;//+second_part;
 
 
         ctx->set_output(0,ans_tensor);
+
+
+        LOG(INFO) << msg;
 
     }
 };
