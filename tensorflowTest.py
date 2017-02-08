@@ -188,15 +188,30 @@ def myConvTest():
         gamma_pow_2h = tf.pow(gamma,2*h*ones)
 
         reluCond = tf.greater(delta,0)
-        relu_delta_w_ok = tf.nn.relu(delta)
-        relu_delta_w_ik = tf.cond(reluCond,tf.multiply(x,w_out),tf.zeros([x.get_shape()[0],w_out.get_shape()[1]]))
-        relu_delta_w_ik = tf.cond(reluCond,w_out,tf.zeros(w_out.get_shape()))
+
+        w_ok_a = tf.nn.relu(delta)
+        w_ik_a = tf.cond(reluCond,tf.multiply(x,w_out),tf.zeros([x.get_shape()[0],w_out.get_shape()[1]]))
+        b_k_a = tf.cond(reluCond,w_out,tf.zeros(w_out.get_shape()))
+        w_c_a = alpha
+
+        w_ok_b = alpha*w_c/w_out
+        w_ik_b = alpha*w_c/w_in*beta
+        b_k_b = w_c*(2*h+1)*alpha
+        w_c_b = reduce_sum(beta*gamma_pow_2hp1)
+
+        w_ok_c = w_c_b
+        w_ik_c = (2*h+1)*b/w_in*gamma_pow_2h
+        b_k_c = reduce_sum(beta/w_in*gamma_pow_2hp1)
+
+        w_ik_d = gamma_pow_2hp1-w_ik_c
+
+        d_w_ok = w_ok_a*w_ok_b*w_ok_c
+        d_w_ik = w_ik_a*w_ik_b*w_ik_c*w_ik_d
+        d_b_k = b_k_a*b_k_b*b_k_c
+        d_w_c = w_c_a*w_c_b
 
 
-
-
-
-
+        # check that this is correct
 
 
 
