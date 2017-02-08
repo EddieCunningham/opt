@@ -185,6 +185,14 @@ class adaptiveSimulatedAnnealingModel(object):
             return cond
 
     def tryMoving(self):
+
+        # to parallelize, we should let each thread generate a point
+        # and then try to accept it.  if accepted, stop all other threads
+
+        # for each thread, just make a while loop that goes until any accept
+
+        # figure this out later........
+
         with tf.variable_scope('tryMoving'):
             new_params_,new_cost_ = self.generatePoint()
             updated_best_cost,updated_best_params = self.tryUpdateBest(new_params_,new_cost_)
